@@ -323,6 +323,30 @@ void MLX90632Sensor::update() {
   
   ESP_LOGD(TAG, "%s Starting measurement cycle...", FW_VERSION);
   
+  // Trigger new measurement burst
+  uint16_t control = CONTROL_MODE_CONTINUOUS | CONTROL_START_BURST;
+  if (!write_register16(REG_CONTROL, control)) {
+    ESP_LOGE(TAG, "%s Failed to trigger SOB!", FW_VERSION);
+    return;
+  }
+  ESP_LOGVV(TAG, "%s SOB triggered, waiting for data...", FW_VERSION);
+  
+  // Wait for new data (max 100ms)
+  bool data_ready = false;
+  for (int i = 0; i < 20; i++) {
+    delay(5);
+    if (check_new_data()) {
+      data_ready = true;
+      ESP_LOGVV(TAG, "%s Data ready after %d x 5ms", FW_VERSION, i+1);
+      break;
+    }
+  }
+  
+  if (!data_ready) {
+    ESP_LOGW(TAG, "%s Timeout waiting for new data!", FW_VERSION);
+    return;
+  }
+  
   // DEBUG: Check control register
   uint16_t ctrl_reg;
   if (read_register16(REG_CONTROL, &ctrl_reg)) {
