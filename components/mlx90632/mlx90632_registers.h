@@ -60,6 +60,8 @@ constexpr uint16_t EE_ID2 = 0x2407;
 // Control register bits
 constexpr uint16_t CTRL_MODE_CONTINUOUS = 0x0001;
 constexpr uint16_t CTRL_MODE_STEP = 0x0002;
+constexpr uint16_t CTRL_SOB = 0x0010;  // Start of Burst (wake sensor)
+constexpr uint16_t CTRL_SOC = 0x0008;  // Start of Conversion
 
 // Status register bits
 constexpr uint16_t STATUS_NEW_DATA = 0x0001;

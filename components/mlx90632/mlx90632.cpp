@@ -75,11 +75,39 @@ void MLX90632Component::setup() {
     return;
   }
   
-  // Set continuous measurement mode
-  if (!write_register16(REG_CONTROL, CTRL_MODE_CONTINUOUS)) {
+  // Read current control register
+  uint16_t ctrl_before;
+  if (read_register16(REG_CONTROL, &ctrl_before)) {
+    ESP_LOGD(TAG, "%s Control register before: 0x%04X", FW_VERSION, ctrl_before);
+  }
+  
+  // Wake sensor and set continuous measurement mode with SOB
+  uint16_t ctrl_value = CTRL_MODE_CONTINUOUS | CTRL_SOB;
+  if (!write_register16(REG_CONTROL, ctrl_value)) {
     ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
     this->mark_failed();
     return;
+  }
+  
+  // Verify control register was set
+  delay(100);  // Give sensor time to wake up
+  uint16_t ctrl_after;
+  if (read_register16(REG_CONTROL, &ctrl_after)) {
+    ESP_LOGD(TAG, "%s Control register after: 0x%04X (expected 0x%04X)", 
+             FW_VERSION, ctrl_after, ctrl_value);
+    if ((ctrl_after & CTRL_MODE_CONTINUOUS) == 0) {
+      ESP_LOGW(TAG, "%s Sensor not in continuous mode!", FW_VERSION);
+    }
+  }
+  
+  // Read initial status
+  uint16_t status;
+  if (read_register16(REG_STATUS, &status)) {
+    ESP_LOGD(TAG, "%s Initial status: 0x%04X (NewData=%d, EEBusy=%d, DevBusy=%d)", 
+             FW_VERSION, status, 
+             (status & STATUS_NEW_DATA) ? 1 : 0,
+             (status & STATUS_EEPROM_BUSY) ? 1 : 0,
+             (status & STATUS_DEVICE_BUSY) ? 1 : 0);
   }
   
   ESP_LOGI(TAG, "%s MLX90632 initialized successfully", FW_VERSION);
@@ -144,8 +172,28 @@ bool MLX90632Component::read_calibration() {
   Ha = (double)(int16_t)ee_ha * pow(2, -10);
   Hb = (double)(int16_t)ee_hb * pow(2, -10);
   
-  ESP_LOGI(TAG, "%s Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
-           FW_VERSION, P_R, P_G, Aa, Ba, Ga, Gb, Ka);
+  // Log calibration - raw hex values
+  ESP_LOGD(TAG, "%s Cal RAW 32-bit: P_R=0x%08X P_G=0x%08X P_T=0x%08X P_O=0x%08X",
+           FW_VERSION, ee_p_r, ee_p_g, ee_p_t, ee_p_o);
+  ESP_LOGD(TAG, "%s Cal RAW 32-bit: Aa=0x%08X Ba=0x%08X Ga=0x%08X",
+           FW_VERSION, ee_aa, ee_ba, ee_ga);
+  ESP_LOGD(TAG, "%s Cal RAW 16-bit: Gb=0x%04X Ka=0x%04X Kb=0x%04X Ha=0x%04X Hb=0x%04X",
+           FW_VERSION, ee_gb, ee_ka, ee_kb, ee_ha, ee_hb);
+  
+  // Log scaled calibration values
+  ESP_LOGI(TAG, "%s Calibration scaled:", FW_VERSION);
+  ESP_LOGI(TAG, "%s   P_R=%.6f P_G=%.9f P_T=%.12f P_O=%.6f",
+           FW_VERSION, P_R, P_G, P_T, P_O);
+  ESP_LOGI(TAG, "%s   Aa=%.6f Ab=%.6f Ba=%.9f Bb=%.9f",
+           FW_VERSION, Aa, Ab, Ba, Bb);
+  ESP_LOGI(TAG, "%s   Ca=%.9f Cb=%.9f Da=%.9f Db=%.9f",
+           FW_VERSION, Ca, Cb, Da, Db);
+  ESP_LOGI(TAG, "%s   Ea=%.9f Eb=%.9f Fa=%.9f Fb=%.9f",
+           FW_VERSION, Ea, Eb, Fa, Fb);
+  ESP_LOGI(TAG, "%s   Ga=%.9f Gb=%.6f Ka=%.6f Kb=%d",
+           FW_VERSION, Ga, Gb, Ka, Kb);
+  ESP_LOGI(TAG, "%s   Ha=%.6f Hb=%.6f",
+           FW_VERSION, Ha, Hb);
   
   return true;
 }
@@ -154,6 +202,14 @@ bool MLX90632Component::read_calibration() {
 bool MLX90632Component::check_new_data() {
   uint16_t status;
   if (!read_register16(REG_STATUS, &status)) return false;
+  
+  ESP_LOGVV(TAG, "%s Status: 0x%04X (NewData=%d, Cycle=%d, EEBusy=%d, DevBusy=%d)", 
+            FW_VERSION, status,
+            (status & STATUS_NEW_DATA) ? 1 : 0,
+            (status & STATUS_CYCLE_POS_MASK) >> 1,
+            (status & STATUS_EEPROM_BUSY) ? 1 : 0,
+            (status & STATUS_DEVICE_BUSY) ? 1 : 0);
+  
   return (status & STATUS_NEW_DATA) != 0;
 }
 
@@ -175,12 +231,17 @@ float MLX90632Component::calculate_ambient_temperature() {
   int16_t ambient = (int16_t)ram_ambient;
   int16_t ref = (int16_t)ram_ref;
   
+  ESP_LOGD(TAG, "%s [AMB] ambient=%d ref=%d", FW_VERSION, ambient, ref);
+  
   // Ambient temperature calculation (Melexis algorithm)
   double VRTA = ref + (ref - ambient) / 0.02;
   double AMB = Aa + Ba * VRTA;
   double amb_diff = ambient - AMB;
   double PTAT = amb_diff + Gb * amb_diff * amb_diff;
   double ambient_temp = PTAT / (1 + Ka * P_R) + 25.0;
+  
+  ESP_LOGD(TAG, "%s [AMB] VRTA=%.2f AMB=%.2f PTAT=%.2f -> T=%.2f°C", 
+           FW_VERSION, VRTA, AMB, PTAT, ambient_temp);
   
   return (float)ambient_temp;
 }
@@ -203,6 +264,9 @@ float MLX90632Component::calculate_object_temperature() {
   int16_t ambient_new = (int16_t)ram_54;
   int16_t ambient_old = (int16_t)ram_56;
   
+  ESP_LOGD(TAG, "%s [OBJ] obj_new=%d obj_old=%d amb_new=%d amb_old=%d", 
+           FW_VERSION, object_new, object_old, ambient_new, ambient_old);
+  
   // Simplified object temperature calculation
   // TODO: Implement full Melexis DSPv5 algorithm with iterations
   double VR_Ta = ambient_new + Gb * (ambient_new - ambient_old);
@@ -210,6 +274,9 @@ float MLX90632Component::calculate_object_temperature() {
   
   double S = object_new - object_old;
   double object_temp = amb_temp + S * 0.01;  // Placeholder calculation
+  
+  ESP_LOGD(TAG, "%s [OBJ] VR_Ta=%.2f amb=%.2f S=%.2f -> T=%.2f°C", 
+           FW_VERSION, VR_Ta, amb_temp, S, object_temp);
   
   return (float)object_temp;
 }
@@ -223,9 +290,18 @@ void MLX90632Component::update() {
     return;
   }
   
+  // Read status register
+  uint16_t status;
+  if (read_register16(REG_STATUS, &status)) {
+    ESP_LOGD(TAG, "%s Status: 0x%04X (NewData=%d, Cycle=%d)", 
+             FW_VERSION, status,
+             (status & STATUS_NEW_DATA) ? 1 : 0,
+             (status & STATUS_CYCLE_POS_MASK) >> 1);
+  }
+  
   // Check for new data
   if (!check_new_data()) {
-    ESP_LOGV(TAG, "%s No new data", FW_VERSION);
+    ESP_LOGD(TAG, "%s No new data available", FW_VERSION);
     return;
   }
   
