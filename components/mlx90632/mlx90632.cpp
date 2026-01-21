@@ -80,10 +80,57 @@ void MLX90632Component::setup() {
 }
 
 void MLX90632Component::update() {
+  static bool raw_eeprom_logged = false;
+  
   ESP_LOGD(TAG, "=== UPDATE CALLED ===");
   if (this->is_failed()) {
     ESP_LOGD(TAG, "Component is failed, returning");
     return;
+  }
+  
+  // Log raw EEPROM values once to diagnose calibration issue
+  if (!raw_eeprom_logged) {
+    // Read raw EEPROM registers using I2C directly
+    uint16_t p_r_lsw = 0, p_r_msw = 0;
+    uint16_t p_g_lsw = 0, p_g_msw = 0;
+    uint16_t aa_lsw = 0, aa_msw = 0;
+    uint16_t ba_lsw = 0, ba_msw = 0;
+    uint16_t ga_lsw = 0, ga_msw = 0;
+    uint16_t gb = 0, ka = 0;
+    
+    // P_R at 0x243D (LSW) and 0x243E (MSW)
+    this->read_register16_(0x243D, &p_r_lsw, 1);
+    this->read_register16_(0x243E, &p_r_msw, 1);
+    // P_G at 0x243F (LSW) and 0x2440 (MSW)
+    this->read_register16_(0x243F, &p_g_lsw, 1);
+    this->read_register16_(0x2440, &p_g_msw, 1);
+    // Aa at 0x2441 (LSW) and 0x2442 (MSW)
+    this->read_register16_(0x2441, &aa_lsw, 1);
+    this->read_register16_(0x2442, &aa_msw, 1);
+    // Ba at 0x2443 (LSW) and 0x2444 (MSW)
+    this->read_register16_(0x2443, &ba_lsw, 1);
+    this->read_register16_(0x2444, &ba_msw, 1);
+    // Ga at 0x2453 (LSW) and 0x2454 (MSW)
+    this->read_register16_(0x2453, &ga_lsw, 1);
+    this->read_register16_(0x2454, &ga_msw, 1);
+    // Gb at 0x2455
+    this->read_register16_(0x2455, &gb, 1);
+    // Ka at 0x2456
+    this->read_register16_(0x2456, &ka, 1);
+    
+    uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
+    uint32_t ee_p_g = ((uint32_t)p_g_msw << 16) | p_g_lsw;
+    uint32_t ee_aa = ((uint32_t)aa_msw << 16) | aa_lsw;
+    uint32_t ee_ba = ((uint32_t)ba_msw << 16) | ba_lsw;
+    uint32_t ee_ga = ((uint32_t)ga_msw << 16) | ga_lsw;
+    
+    ESP_LOGD(TAG, "[RAW-EEPROM] P_R: LSW=0x%04X MSW=0x%04X -> 0x%08X", p_r_lsw, p_r_msw, ee_p_r);
+    ESP_LOGD(TAG, "[RAW-EEPROM] P_G: LSW=0x%04X MSW=0x%04X -> 0x%08X", p_g_lsw, p_g_msw, ee_p_g);
+    ESP_LOGD(TAG, "[RAW-EEPROM] Aa: LSW=0x%04X MSW=0x%04X -> 0x%08X", aa_lsw, aa_msw, ee_aa);
+    ESP_LOGD(TAG, "[RAW-EEPROM] Ba: LSW=0x%04X MSW=0x%04X -> 0x%08X", ba_lsw, ba_msw, ee_ba);
+    ESP_LOGD(TAG, "[RAW-EEPROM] Ga: LSW=0x%04X MSW=0x%04X -> 0x%08X", ga_lsw, ga_msw, ee_ga);
+    ESP_LOGD(TAG, "[RAW-EEPROM] Gb=0x%04X Ka=0x%04X", gb, ka);
+    raw_eeprom_logged = true;
   }
   
   // Log calibration data at every update
@@ -98,6 +145,19 @@ void MLX90632Component::update() {
   }
   
   ESP_LOGD(TAG, "New data available! Reading temperatures...");
+  
+  // Log RAM register values (Extended range mode)
+  uint16_t ram_52 = 0, ram_53 = 0, ram_54 = 0, ram_55 = 0, ram_56 = 0, ram_57 = 0;
+  this->read_register16_(0x4005, &ram_52, 1);  // RAM_52 - Object new
+  this->read_register16_(0x4006, &ram_53, 1);  // RAM_53 - Object old
+  this->read_register16_(0x4007, &ram_54, 1);  // RAM_54 - Ambient new
+  this->read_register16_(0x4008, &ram_55, 1);  // RAM_55 - Ambient new/old
+  this->read_register16_(0x4009, &ram_56, 1);  // RAM_56 - Ambient old
+  this->read_register16_(0x400A, &ram_57, 1);  // RAM_57 - Ambient ref
+  
+  ESP_LOGD(TAG, "[AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", ram_54, ram_57);
+  ESP_LOGD(TAG, "[OBJ-EXT] RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_55=0x%04X RAM_56=0x%04X", 
+           ram_52, ram_53, ram_54, ram_55, ram_56);
   
   // Read ambient temperature
   double ambient_temp = mlx90632_.getAmbientTemperature();
