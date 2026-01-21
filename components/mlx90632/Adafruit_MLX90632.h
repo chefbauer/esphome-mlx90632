@@ -204,7 +204,7 @@ class Adafruit_MLX90632 {
  public:
   Adafruit_MLX90632();
   ~Adafruit_MLX90632();
-  bool begin(uint8_t i2c_addr = MLX90632_DEFAULT_ADDR, TwoWire* wire = &Wire);
+  bool begin(uint8_t i2c_addr = MLX90632_DEFAULT_ADDR, Adafruit_I2CDevice* i2c_device = nullptr);
   uint64_t getProductID();
   uint16_t getProductCode();
   uint16_t getEEPROMVersion();
