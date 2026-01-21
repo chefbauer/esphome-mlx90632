@@ -39,7 +39,3 @@ class ESPHomeI2CAdapter : public I2CInterface {
 
 }  // namespace mlx90632
 }  // namespace esphome
-  uint8_t rx_buf_[255]{};  // I2C max read size
-  uint8_t rx_len_{0};
-  uint8_t rx_pos_{0};
-};
