@@ -282,25 +282,25 @@ float MLX90632Sensor::calculate_object_temperature() {
 
 // Update: Read and publish temperatures
 void MLX90632Sensor::update() {
-  ESP_LOGD(TAG, "%s === UPDATE CALLED === (ready=%d, count=%d)", FW_VERSION, setup_complete_, update_count_);
+  ESP_LOGD(TAG, "%s === UPDATE CALLED === (ready=%d, count=%d, P_R=%.6f)", FW_VERSION, setup_complete_, update_count_, P_R);
   
   if (this->is_failed()) {
     ESP_LOGD(TAG, "%s Component failed", FW_VERSION);
     return;
   }
   
-  // If setup not ready, wait a few updates for I2C to initialize
-  if (!this->is_ready()) {
+  // Check if setup actually ran by looking at calibration (P_R should not be 0)
+  if (!this->is_ready() || P_R == 0.0) {
     update_count_++;
     if (update_count_ < 3) {
-      ESP_LOGW(TAG, "%s Waiting for setup (update #%d) - setup_complete=%d", FW_VERSION, update_count_, setup_complete_);
+      ESP_LOGW(TAG, "%s Waiting for setup (update #%d) - ready=%d, P_R=%.6f", FW_VERSION, update_count_, setup_complete_, P_R);
       return;
     }
-    // After 3 updates, force setup if not called yet
-    ESP_LOGW(TAG, "%s Setup was not called after %d updates, running it now", FW_VERSION, update_count_);
+    // After 3 updates, force setup if not properly initialized
+    ESP_LOGE(TAG, "%s Setup incomplete after %d updates (ready=%d, P_R=%.6f), forcing setup now!", FW_VERSION, update_count_, setup_complete_, P_R);
     this->setup();
-    if (!this->is_ready()) {
-      ESP_LOGE(TAG, "%s Setup failed, skipping update", FW_VERSION);
+    if (P_R == 0.0) {
+      ESP_LOGE(TAG, "%s Setup failed - calibration still zero!", FW_VERSION);
       return;
     }
     return;  // Skip this update, start measuring on next one
