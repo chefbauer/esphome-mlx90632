@@ -17,9 +17,22 @@ MEASUREMENT_SELECTS = {
     "extended_range": MeasurementSelect.MLX90632_MEAS_EXTENDED_RANGE,
 }
 
+RefreshRate = mlx90632_ns.enum("mlx90632_refresh_rate_t")
+REFRESH_RATES = {
+    "0.5hz": RefreshRate.MLX90632_REFRESH_0_5HZ,
+    "1hz": RefreshRate.MLX90632_REFRESH_1HZ,
+    "2hz": RefreshRate.MLX90632_REFRESH_2HZ,
+    "4hz": RefreshRate.MLX90632_REFRESH_4HZ,
+    "8hz": RefreshRate.MLX90632_REFRESH_8HZ,
+    "16hz": RefreshRate.MLX90632_REFRESH_16HZ,
+    "32hz": RefreshRate.MLX90632_REFRESH_32HZ,
+    "64hz": RefreshRate.MLX90632_REFRESH_64HZ,
+}
+
 CONF_OBJECT_TEMPERATURE = "object_temperature"
 CONF_AMBIENT_TEMPERATURE = "ambient_temperature"
 CONF_MEASUREMENT_SELECT = "measurement_select"
+CONF_REFRESH_RATE = "refresh_rate"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -38,6 +51,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_MEASUREMENT_SELECT, default="medical"): cv.enum(
                 MEASUREMENT_SELECTS, lower=True
             ),
+            cv.Optional(CONF_REFRESH_RATE, default="2hz"): cv.enum(
+                REFRESH_RATES, lower=True
+            ),
         }
     )
     .extend(cv.polling_component_schema("60s"))
@@ -52,6 +68,7 @@ async def to_code(config):
     await i2c.register_i2c_device(var, config)
 
     cg.add(var.set_measurement_select(config[CONF_MEASUREMENT_SELECT]))
+    cg.add(var.set_refresh_rate(config[CONF_REFRESH_RATE]))
 
     if CONF_OBJECT_TEMPERATURE in config:
         sens = await sensor.new_sensor(config[CONF_OBJECT_TEMPERATURE])

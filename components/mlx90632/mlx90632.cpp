@@ -40,11 +40,31 @@ void MLX90632Component::setup() {
     ESP_LOGI(TAG, "Using Extended Range measurement mode");
   }
   
-  // Set refresh rate to 2Hz
-  if (!mlx90632_.setRefreshRate(MLX90632_REFRESH_2HZ)) {
-    ESP_LOGE(TAG, "Failed to set refresh rate");
-    this->mark_failed();
-    return;
+  // Set refresh rate (can be configured)
+  // Note: Only set if different from current to avoid excessive EEPROM writes
+  mlx90632_refresh_rate_t current_rate = mlx90632_.getRefreshRate();
+  if (current_rate != refresh_rate_) {
+    if (!mlx90632_.setRefreshRate(refresh_rate_)) {
+      ESP_LOGE(TAG, "Failed to set refresh rate");
+      this->mark_failed();
+      return;
+    }
+    
+    // Log refresh rate
+    uint16_t refresh_ms = 0;
+    switch (refresh_rate_) {
+      case MLX90632_REFRESH_0_5HZ: refresh_ms = 2000; break;
+      case MLX90632_REFRESH_1HZ: refresh_ms = 1000; break;
+      case MLX90632_REFRESH_2HZ: refresh_ms = 500; break;
+      case MLX90632_REFRESH_4HZ: refresh_ms = 250; break;
+      case MLX90632_REFRESH_8HZ: refresh_ms = 125; break;
+      case MLX90632_REFRESH_16HZ: refresh_ms = 62; break;
+      case MLX90632_REFRESH_32HZ: refresh_ms = 31; break;
+      case MLX90632_REFRESH_64HZ: refresh_ms = 16; break;
+    }
+    ESP_LOGI(TAG, "Refresh rate updated to %u ms per measurement", refresh_ms);
+  } else {
+    ESP_LOGD(TAG, "Refresh rate already set correctly, skipping EEPROM write");
   }
   
   ESP_LOGD(TAG, "MLX90632 initialized successfully");

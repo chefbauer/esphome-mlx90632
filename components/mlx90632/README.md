@@ -42,6 +42,14 @@ The MLX90632 supports two measurement modes that can be switched via the `measur
 
 **Important**: Both modes can be used on any MLX90632, regardless of whether it's labeled as "medical" or "standard" version. The hardware version primarily affects the factory calibration, but the measurement select mode can be switched in software.
 
+## EEPROM Protection
+
+The component is designed to minimize EEPROM writes:
+
+- **measurement_select**: Uses RAM-only control register (no EEPROM write)
+- **refresh_rate**: Only writes to EEPROM if different from current value (change detection)
+- This prevents excessive wear on the sensor's EEPROM over time
+
 ## Example Configuration
 
 ```yaml
@@ -49,8 +57,9 @@ sensor:
   - platform: mlx90632
     name: MLX90632 Temperature Sensor
     update_interval: 30s
-    address: 0x3A  # Optional, default is 0x3A
-    measurement_select: medical  # Optional, default is 'medical'
+    address: 0x3A                    # Optional, default is 0x3A
+    measurement_select: medical      # Optional, default is 'medical'
+    refresh_rate: 2hz                # Optional, default is '2hz' (500ms per measurement)
     
     object_temperature:
       name: "Object Temperature"
@@ -68,11 +77,15 @@ i2c:
 
 ### Configuration Variables
 
-- **update_interval** (*Optional*, int): How often to update the sensor. Defaults to 60s.
+- **update_interval** (*Optional*, time): How often to update the sensor from ESPHome. Defaults to 60s.
 - **address** (*Optional*, int): The I2C address of the sensor. Defaults to 0x3A.
 - **measurement_select** (*Optional*, string): The measurement mode. Can be `medical` (default) or `extended_range`.
   - `medical`: Standard medical mode with ±50°C range
   - `extended_range`: Extended range measurement mode (can be used even with medical hardware version)
+- **refresh_rate** (*Optional*, string): How fast the sensor takes measurements. Defaults to `2hz`.
+  - Available rates: `0.5hz` (2000ms), `1hz` (1000ms), `2hz` (500ms), `4hz` (250ms), 
+    `8hz` (125ms), `16hz` (62ms), `32hz` (31ms), `64hz` (16ms)
+  - **Note**: This is the sensor's internal measurement rate, independent of `update_interval`
 - **object_temperature** (*Optional*): The object (IR) temperature sensor. At least one temperature sensor must be configured.
   - **name** (*Optional*, string): The name of the object temperature sensor.
 - **ambient_temperature** (*Optional*): The ambient (reference) temperature sensor. At least one temperature sensor must be configured.
