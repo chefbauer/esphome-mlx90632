@@ -291,17 +291,41 @@ void MLX90632Component::update() {
     return;
   }
   
-  // DEBUG: Check if calibration was loaded (if not, try again)
-  static bool cal_logged = false;
-  if (!cal_logged || P_R == 0.0) {
-    if (P_R == 0.0) {
-      ESP_LOGW(TAG, "%s Calibration not loaded, reading now...", FW_VERSION);
-      if (!read_calibration()) {
-        ESP_LOGE(TAG, "%s Failed to read calibration in update", FW_VERSION);
-        return;
-      }
+  // Run setup logic in first update if not done
+  if (!setup_complete_) {
+    ESP_LOGI(TAG, "%s Running setup in first update...", FW_VERSION);
+    
+    // Read product ID
+    uint16_t id0, id1, id2;
+    if (!read_register16(EE_ID0, &id0) || 
+        !read_register16(EE_ID1, &id1) || 
+        !read_register16(EE_ID2, &id2)) {
+      ESP_LOGE(TAG, "%s Failed to read product ID", FW_VERSION);
+      this->mark_failed();
+      return;
     }
-    cal_logged = true;
+    
+    uint64_t product_id = ((uint64_t)id0 << 32) | ((uint64_t)id1 << 16) | id2;
+    ESP_LOGI(TAG, "%s Product ID: 0x%012llX", FW_VERSION, product_id);
+    
+    // Read calibration from EEPROM
+    if (!read_calibration()) {
+      ESP_LOGE(TAG, "%s Failed to read calibration", FW_VERSION);
+      this->mark_failed();
+      return;
+    }
+    
+    // Wake sensor and set continuous measurement mode with SOB
+    uint16_t ctrl_value = CTRL_MODE_CONTINUOUS | CTRL_SOB;
+    if (!write_register16(REG_CONTROL, ctrl_value)) {
+      ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
+      this->mark_failed();
+      return;
+    }
+    
+    ESP_LOGI(TAG, "%s Setup complete!", FW_VERSION);
+    setup_complete_ = true;
+    return; // Skip first measurement, let sensor settle
   }
   
   // DEBUG: Check control register
@@ -311,12 +335,6 @@ void MLX90632Component::update() {
              FW_VERSION, ctrl_reg,
              (ctrl_reg & CTRL_MODE_CONTINUOUS) ? 1 : 0,
              (ctrl_reg & CTRL_SOB) ? 1 : 0);
-    
-    // If not in continuous mode, set it
-    if ((ctrl_reg & CTRL_MODE_CONTINUOUS) == 0) {
-      ESP_LOGW(TAG, "%s Sensor not in continuous mode! Setting now...", FW_VERSION);
-      write_register16(REG_CONTROL, CTRL_MODE_CONTINUOUS | CTRL_SOB);
-    }
   }
   
   // DEBUG: Log calibration values
