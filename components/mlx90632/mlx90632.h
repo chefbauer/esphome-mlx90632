@@ -63,7 +63,7 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   double TO0{25.0};  // Previous object temperature
   double TA0{25.0};  // Previous ambient temperature
   
-  MeasurementMode measurement_mode_{MEASUREMENT_MODE_EXTENDED};
+  MeasurementMode measurement_mode_{MEASUREMENT_MODE_MEDICAL};
   RefreshRate refresh_rate_{REFRESH_RATE_2HZ};
   float emissivity_{1.0};
   bool setup_complete_{false};

@@ -79,58 +79,32 @@ void MLX90632Sensor::setup() {
     ESP_LOGI(TAG, "%s Control before: 0x%04X", FW_VERSION, ctrl_before);
   }
   
-  // Switch from Medical to Extended range (must follow datasheet sequence!)
-  // 1. Send addressed reset (write 0x0006 to 0x3005)
-  if (!write_register16(0x3005, 0x0006)) {
-    ESP_LOGE(TAG, "%s Failed to send reset", FW_VERSION);
-    this->mark_failed();
-    return;
-  }
-  delay(200);  // Wait for reset to complete
-  
-  // 2. Read current control
-  uint16_t ctrl_current;
-  if (!read_register16(REG_CONTROL, &ctrl_current)) {
-    ESP_LOGE(TAG, "%s Failed to read control after reset", FW_VERSION);
-    this->mark_failed();
-    return;
-  }
-  ESP_LOGD(TAG, "%s Control after reset: 0x%04X", FW_VERSION, ctrl_current);
-  
-  // 3. Set HALT mode (00) + Extended range (0x11)
-  // meas_select[4:0]=0x11 in bits 8:4 = 0x110, mode[1:0]=00 = 0x000
-  uint16_t ctrl_halt_extended = 0x0110;  // Extended + HALT
-  if (!write_register16(REG_CONTROL, ctrl_halt_extended)) {
-    ESP_LOGE(TAG, "%s Failed to set HALT+Extended", FW_VERSION);
-    this->mark_failed();
-    return;
-  }
-  delay(10);
-  
-  // 4. Read back to verify
-  if (!read_register16(REG_CONTROL, &ctrl_current)) {
-    ESP_LOGE(TAG, "%s Failed to read control", FW_VERSION);
-    this->mark_failed();
-    return;
-  }
-  ESP_LOGD(TAG, "%s Control HALT+Extended: 0x%04X", FW_VERSION, ctrl_current);
-  
-  // 5. Set Continuous mode (11) while keeping Extended (0x11)
-  // meas_select[4:0]=0x11 in bits 8:4 = 0x110, mode[1:0]=11 = 0x003
-  uint16_t ctrl_value = 0x0113;  // Extended + Continuous
+  // TEMPORARY: Test Medical Continuous mode (skip extended switch)
+  // Set Continuous mode (11) with Medical range (0x00)
+  // meas_select[4:0]=0x00 in bits 8:4 = 0x000, mode[1:0]=11 = 0x003
+  uint16_t ctrl_value = 0x0003;  // Medical + Continuous
   if (!write_register16(REG_CONTROL, ctrl_value)) {
-    ESP_LOGE(TAG, "%s Failed to set Extended Continuous", FW_VERSION);
+    ESP_LOGE(TAG, "%s Failed to set Medical Continuous", FW_VERSION);
     this->mark_failed();
     return;
   }
-  ESP_LOGI(TAG, "%s Control set to 0x%04X (Extended Continuous)", FW_VERSION, ctrl_value);
+  ESP_LOGI(TAG, "%s Control set to 0x%04X (Medical Continuous)", FW_VERSION, ctrl_value);
+  
+  // Read back to verify
+  uint16_t ctrl_after_write;
+  if (!read_register16(REG_CONTROL, &ctrl_after_write)) {
+    ESP_LOGE(TAG, "%s Failed to read control after write", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  ESP_LOGD(TAG, "%s Control after write: 0x%04X (expected 0x%04X)", FW_VERSION, ctrl_after_write, ctrl_value);
   
   // Verify control register was set (give sensor time to wake up)
   this->set_timeout(100, [this]() {
     uint16_t ctrl_after;
     if (read_register16(REG_CONTROL, &ctrl_after)) {
-      ESP_LOGD(TAG, "%s Control register after: 0x%04X (expected 0x%04X)", 
-               FW_VERSION, ctrl_after, CTRL_MODE_CONTINUOUS | CTRL_SOB);
+      ESP_LOGD(TAG, "%s Control register after timeout: 0x%04X (expected 0x%04X)", 
+               FW_VERSION, ctrl_after, CTRL_MODE_CONTINUOUS);
       if ((ctrl_after & CTRL_MODE_CONTINUOUS) == 0) {
         ESP_LOGW(TAG, "%s Sensor not in continuous mode!", FW_VERSION);
       }
@@ -317,14 +291,19 @@ float MLX90632Sensor::calculate_ambient_temperature() {
 
 // Calculate object temperature (SIMPLIFIED for testing)
 float MLX90632Sensor::calculate_object_temperature() {
-  // Read RAM registers - Extended Range mode
-  uint16_t ram_52, ram_54;
+  // Read RAM registers
+  uint16_t ram_object, ram_ambient;
   
-  if (!read_register16(RAM_52, &ram_52)) return NAN;
-  if (!read_register16(RAM_54, &ram_54)) return NAN;
+  if (measurement_mode_ == MEASUREMENT_MODE_EXTENDED) {
+    if (!read_register16(RAM_52, &ram_object)) return NAN;
+    if (!read_register16(RAM_54, &ram_ambient)) return NAN;
+  } else {
+    if (!read_register16(RAM_6, &ram_object)) return NAN;
+    if (!read_register16(RAM_9, &ram_ambient)) return NAN;
+  }
   
-  int16_t object_new_raw = (int16_t)ram_52;
-  int16_t ambient_new_raw = (int16_t)ram_54;
+  int16_t object_new_raw = (int16_t)ram_object;
+  int16_t ambient_new_raw = (int16_t)ram_ambient;
   
   // SIMPLIFIED calculation - just to get something reasonable
   // Full Melexis DSPv5 comes later
