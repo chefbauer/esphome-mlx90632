@@ -12,7 +12,7 @@ DEPENDENCIES = ["i2c"]
 
 mlx90632_ns = cg.esphome_ns.namespace("mlx90632")
 MLX90632Sensor = mlx90632_ns.class_(
-    "MLX90632Sensor", sensor.Sensor, cg.PollingComponent, i2c.I2CDevice
+    "MLX90632Sensor", cg.PollingComponent, sensor.Sensor, i2c.I2CDevice
 )
 
 # Enums

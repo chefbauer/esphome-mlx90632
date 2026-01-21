@@ -28,7 +28,7 @@ enum RefreshRate {
   REFRESH_RATE_64HZ = 7
 };
 
-class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2c::I2CDevice {
+class MLX90632Sensor : public PollingComponent, public sensor::Sensor, public i2c::I2CDevice {
  public:
   void setup() override;
   void update() override;
