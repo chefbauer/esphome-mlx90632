@@ -20,9 +20,17 @@
 
 #include <Adafruit_BusIO_Register.h>
 #include <Adafruit_I2CDevice.h>
-#include <Wire.h>
 
-#include "Arduino.h"
+// Platform-specific includes
+#ifdef ESP_IDF_VERSION
+  // ESP-IDF
+  #include <cmath>
+  #include <cstring>
+#else
+  // Arduino
+  #include "Arduino.h"
+  #include <Wire.h>
+#endif
 
 /*=========================================================================
     I2C ADDRESS/BITS

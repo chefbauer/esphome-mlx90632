@@ -1,12 +1,16 @@
 /*!
  * @file Adafruit_BusIO_Register.cpp
  *
- * Native ESPHome/ESP-IDF Register-based I2C Communication
- * Provides high-level register read/write operations
+ * Register-based I2C Communication for both Arduino and ESP-IDF
  */
 
 #include "Adafruit_BusIO_Register.h"
 #include <string.h>
+
+#ifdef ESP_IDF_VERSION
+  #include "esp_log.h"
+  static const char* TAG = "BusIO_Register";
+#endif
 
 /*!
  *    @brief  Instantiates a new Adafruit_BusIO_Register class

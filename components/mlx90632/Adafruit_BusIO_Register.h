@@ -1,17 +1,27 @@
 /*!
  * @file Adafruit_BusIO_Register.h
  *
- * Native ESPHome/ESP-IDF Register-based I2C Communication
+ * Register-based I2C Communication for both Arduino and ESP-IDF
  */
 
 #ifndef _ADAFRUIT_BUSIO_REGISTER_H
 #define _ADAFRUIT_BUSIO_REGISTER_H
 
-#include "Arduino.h"
-#include "Adafruit_I2CDevice.h"
 #include <stdint.h>
+#include <stdbool.h>
 
-// Byte order constants (Arduino-compatible)
+// Platform detection
+#ifdef ESP_IDF_VERSION
+  // ESP-IDF platform
+  #include "driver/i2c_master.h"
+#else
+  // Arduino platform
+  #include "Arduino.h"
+#endif
+
+#include "Adafruit_I2CDevice.h"
+
+// Byte order constants
 #define LSBFIRST 0
 #define MSBFIRST 1
 #define LITTLE_ENDIAN 0
@@ -23,7 +33,7 @@
 class Adafruit_BusIO_Register {
 public:
   /**
-   * @brief Constructor for 8/16/32-bit register access
+   * @brief Constructor for register access
    * @param i2c_device Pointer to I2CDevice
    * @param reg_addr Register address
    * @param width Register width in bytes
@@ -35,7 +45,7 @@ public:
                           uint8_t regWidth = 2);
 
   /**
-   * @brief Constructor for bit-field register access
+   * @brief Constructor for bit-field access
    * @param i2c_device Pointer to I2CDevice
    * @param reg_addr Register address
    * @param bits Number of bits
@@ -72,7 +82,7 @@ private:
   uint8_t _width;
   uint8_t _byteOrder;
   uint8_t _regWidth;
-  uint8_t _shift = 0; // For bit-field access
+  uint8_t _shift = 0;
 };
 
 /*!
