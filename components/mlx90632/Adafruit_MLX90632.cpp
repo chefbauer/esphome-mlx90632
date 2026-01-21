@@ -17,6 +17,12 @@
 
 #include "Adafruit_MLX90632.h"
 #include <math.h>
+#include <unistd.h>
+
+// Define delay if not already defined
+#ifndef delay
+  #define delay(ms) usleep((ms) * 1000)
+#endif
 
 // #define MLX90632_DEBUG
 
@@ -41,14 +47,18 @@ Adafruit_MLX90632::~Adafruit_MLX90632() {
 /*!
  *    @brief  Sets up the hardware and initializes I2C
  *    @param  i2c_address The I2C address to be used.
- *    @param  wire The Wire object to be used for I2C connections.
+ *    @param  i2c_device The Adafruit_I2CDevice object to be used for I2C connections.
  *    @return True if initialization was successful, otherwise false.
  */
-bool Adafruit_MLX90632::begin(uint8_t i2c_address, TwoWire* wire) {
+bool Adafruit_MLX90632::begin(uint8_t i2c_address, Adafruit_I2CDevice* i2c_device) {
   if (i2c_dev) {
     delete i2c_dev;
   }
-  i2c_dev = new Adafruit_I2CDevice(i2c_address, wire);
+  if (i2c_device) {
+    i2c_dev = i2c_device;
+  } else {
+    return false;  // No I2C device provided
+  }
 
   if (!i2c_dev->begin()) {
     return false;
@@ -526,9 +536,9 @@ double Adafruit_MLX90632::preprocessObject(int16_t object_new_raw, int16_t objec
   const double MLX90632_REF_3 = 12.0;
   const double MLX90632_REF_12 = 12.0;
   double kKa = Ka / 1024.0;
-  double VR_IR = ambient_old_raw + kKa * (ambient_new_raw / MLX90632_REF_3);
+  double VR_IR = object_old_raw + kKa * (ambient_new_raw / MLX90632_REF_3);
   return ((((object_new_raw + object_old_raw) / 2.0) / MLX90632_REF_12) / VR_IR) * 524288.0;
-}
+
 
 /*!
  *    @brief  Preprocess object (extended mode, Melexis algorithm)
@@ -538,8 +548,10 @@ double Adafruit_MLX90632::preprocessObject(int16_t object_new_raw, int16_t objec
  *    @param  Ka IR gain coefficient
  *    @return Preprocessed object value
  */
-double Adafruit_MLX90632::preprocessObjectExtended(int16_t object_new_raw, int16_t ambient_new_raw,
-                                                   int16_t ambient_old_raw, double Ka) {
+double Adafruit_MLX90632::preprocessObjectExtended(int16_t object_new_raw,
+                                                   int16_t ambient_new_raw,
+                                                   int16_t ambient_old_raw,
+                                                   double Ka) {
   const double MLX90632_REF_3 = 12.0;
   const double MLX90632_REF_12 = 12.0;
   double kKa = Ka / 1024.0;
