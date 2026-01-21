@@ -25,6 +25,9 @@
 #include <cmath>
 #include <cstring>
 
+// Forward declaration for ESPHome I2CDevice
+namespace esphome { namespace i2c { class I2CDevice; } }
+
 /*=========================================================================
     I2C ADDRESS/BITS
     -----------------------------------------------------------------------*/
@@ -227,6 +230,9 @@ class Adafruit_MLX90632 {
   double getObjectTemperature();
   void setEmissivity(double value);
   double getEmissivity() const;
+  
+  // ESPHome integration: Set direct I2CDevice access for atomic transactions
+  void set_esphome_i2c_device(esphome::i2c::I2CDevice *device);
 
  private:
   Adafruit_I2CDevice* i2c_dev; ///< Pointer to I2C bus interface

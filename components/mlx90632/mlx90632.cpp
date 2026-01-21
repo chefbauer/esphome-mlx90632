@@ -22,7 +22,7 @@ void MLX90632Component::setup() {
   }
   
   // Set ESPHome I2CDevice for atomic write-read transactions
-  mlx90632_.i2c_dev->set_esphome_device(this);
+  mlx90632_.set_esphome_i2c_device(this);
   
   // Set to continuous mode for polling
   if (!mlx90632_.setMode(MLX90632_MODE_CONTINUOUS)) {

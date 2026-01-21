@@ -726,3 +726,23 @@ double Adafruit_MLX90632::getEmissivity() const {
     return mlx90632_emissivity;
   }
 }
+
+/*!
+ *    @brief  Set ESPHome I2CDevice for direct atomic transactions
+ *    @param  device Pointer to ESPHome I2CDevice
+ */
+void Adafruit_MLX90632::set_esphome_i2c_device(esphome::i2c::I2CDevice *device) {
+  if (i2c_dev) {
+    i2c_dev->set_esphome_device(device);
+  }
+}
+
+/*!
+ *    @brief  Set ESPHome I2CDevice for direct atomic transactions
+ *    @param  device Pointer to ESPHome I2CDevice
+ */
+void Adafruit_MLX90632::set_esphome_i2c_device(esphome::i2c::I2CDevice *device) {
+  if (i2c_dev) {
+    i2c_dev->set_esphome_device(device);
+  }
+}
