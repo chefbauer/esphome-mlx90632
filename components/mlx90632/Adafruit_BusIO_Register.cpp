@@ -4,8 +4,9 @@
  * Register-based I2C Communication for ESP-IDF
  */
 
-#include "Adafruit_BusIO_Register.h"
-#include <string.h>
+#include "Adafruit_BusIO_Register.h"#include "esp_log.h"
+
+static const char* TAG = "BusIO_Reg";#include <string.h>
 
 /*!
  *    @brief  Instantiates a new Adafruit_BusIO_Register class
@@ -55,7 +56,13 @@ uint32_t Adafruit_BusIO_Register::read() {
   // Read from I2C device
   if (!_i2cDevice->read_then_write(addr_buffer, _regWidth, buffer,
                                     _width)) {
+    ESP_LOGW(TAG, "Read failed for reg 0x%04X", _address);
     return 0;
+  }
+
+  // Log raw bytes
+  if (_width == 2) {
+    ESP_LOGI(TAG, "Reg 0x%04X: [0x%02X 0x%02X]", _address, buffer[0], buffer[1]);
   }
 
   // Convert bytes to 32-bit value based on byte order
