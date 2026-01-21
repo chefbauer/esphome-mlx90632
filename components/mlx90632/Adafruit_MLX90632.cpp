@@ -20,6 +20,9 @@
 #include <math.h>
 #include <unistd.h>
 
+// ESP-IDF logging
+#include "esp_log.h"
+
 // Define delay if not already defined
 #ifndef delay
   #define delay(ms) usleep((ms) * 1000)
