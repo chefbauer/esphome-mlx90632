@@ -359,6 +359,9 @@ bool Adafruit_MLX90632::getCalibrations() {
   uint32_t ee_fa = read32BitRegister(MLX90632_REG_EE_FA_LSW);
   uint32_t ee_fb = read32BitRegister(MLX90632_REG_EE_FB_LSW);
   uint32_t ee_ga = read32BitRegister(MLX90632_REG_EE_GA_LSW);
+  
+  ESP_LOGD("MLX90632", "[RAW-EEPROM] P_R=0x%08X P_G=0x%08X Aa=0x%08X Ba=0x%08X Ga=0x%08X", 
+           ee_p_r, ee_p_g, ee_aa, ee_ba, ee_ga);
 
   // Read 16-bit calibration constants
   Adafruit_BusIO_Register gb_reg = Adafruit_BusIO_Register(
@@ -396,6 +399,10 @@ bool Adafruit_MLX90632::getCalibrations() {
   Kb = (int16_t)kb_reg.read();
   Ha = (double)(int16_t)ha_reg.read() * pow(2, -10); // 2^-10
   Hb = (double)(int16_t)hb_reg.read() * pow(2, -10); // 2^-10
+  
+  uint16_t raw_gb = gb_reg.read();
+  uint16_t raw_ka = ka_reg.read();
+  ESP_LOGD("MLX90632", "[RAW-16BIT] Gb=0x%04X Ka=0x%04X", raw_gb, raw_ka);
 
   ESP_LOGI("MLX90632", "Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f", 
            P_R, P_G, Aa, Ba, Ga, Gb, Ka);
