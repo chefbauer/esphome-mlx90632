@@ -1,166 +1,255 @@
-#include "esphome/core/log.h"
 #include "mlx90632.h"
-#include "ESPHomeI2CAdapter.h"
+#include "esphome/core/log.h"
 
 namespace esphome {
 namespace mlx90632 {
-#define FW_VERSION "V.20"  // Firmware version for debugging
-static const char *TAG = "mlx90632";
 
-void MLX90632Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up MLX90632...");
+static const char *const TAG = "mlx90632";
+#define FW_VERSION "V.N1"
+
+using namespace mlx90632_registers;
+
+// I2C Helper: Read 16-bit register (big-endian)
+bool MLX90632Component::read_register16(uint16_t reg, uint16_t *value) {
+  uint8_t addr_buf[2] = {(uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF)};
+  uint8_t data_buf[2] = {0};
   
-  // Create I2C adapter using this I2CDevice and address
-  // This adapter wraps I2CDevice's read_bytes/write_bytes methods
-  ESPHomeI2CAdapter *i2c_adapter = new ESPHomeI2CAdapter(this, this->address_);
-  
-  // Initialize the Adafruit MLX90632 library with the ESPHome I2C adapter
-  if (!mlx90632_.begin(this->address_, i2c_adapter)) {
-    ESP_LOGE(TAG, "Failed to initialize MLX90632");
-    this->mark_failed();
-    return;
+  if (this->write_read(addr_buf, 2, data_buf, 2) != i2c::ERROR_OK) {
+    ESP_LOGW(TAG, "%s Failed to read register 0x%04X", FW_VERSION, reg);
+    return false;
   }
   
-  // Set ESPHome I2CDevice for atomic write-read transactions
-  mlx90632_.set_esphome_i2c_device(this);
-  
-  // Set to continuous mode for polling
-  if (!mlx90632_.setMode(MLX90632_MODE_CONTINUOUS)) {
-    ESP_LOGE(TAG, "Failed to set measurement mode");
-    this->mark_failed();
-    return;
-  }
-  
-  // Set medical mode or extended range (can be configured)
-  if (!mlx90632_.setMeasurementSelect(measurement_select_)) {
-    ESP_LOGE(TAG, "Failed to set measurement select");
-    this->mark_failed();
-    return;
-  }
-  
-  // Log which mode is active
-  if (measurement_select_ == MLX90632_MEAS_MEDICAL) {
-    ESP_LOGI(TAG, "Using Medical measurement mode");
-  } else {
-    ESP_LOGI(TAG, "Using Extended Range measurement mode");
-  }
-  
-  // Set emissivity
-  mlx90632_.setEmissivity(emissivity_);
-  
-  // Set refresh rate (can be configured)
-  // Note: Only set if different from current to avoid excessive EEPROM writes
-  mlx90632_refresh_rate_t current_rate = mlx90632_.getRefreshRate();
-  if (current_rate != refresh_rate_) {
-    if (!mlx90632_.setRefreshRate(refresh_rate_)) {
-      ESP_LOGW(TAG, "Failed to set refresh rate");
-    } else {
-      // Log refresh rate
-      uint16_t refresh_ms = 0;
-      switch (refresh_rate_) {
-        case MLX90632_REFRESH_0_5HZ: refresh_ms = 2000; break;
-        case MLX90632_REFRESH_1HZ: refresh_ms = 1000; break;
-        case MLX90632_REFRESH_2HZ: refresh_ms = 500; break;
-        case MLX90632_REFRESH_4HZ: refresh_ms = 250; break;
-        case MLX90632_REFRESH_8HZ: refresh_ms = 125; break;
-        case MLX90632_REFRESH_16HZ: refresh_ms = 62; break;
-        case MLX90632_REFRESH_32HZ: refresh_ms = 31; break;
-        case MLX90632_REFRESH_64HZ: refresh_ms = 16; break;
-      }
-      ESP_LOGI(TAG, "Refresh rate set to %u ms per measurement", refresh_ms);
-    }
-  } else {
-    ESP_LOGD(TAG, "Refresh rate already correct, skipping EEPROM write");
-  }
-  
-  ESP_LOGI(TAG, "MLX90632 initialized successfully");
-  
-  uint64_t product_id = mlx90632_.getProductID();
-  ESP_LOGI(TAG, "Product ID: 0x%012" PRIx64, product_id);
+  *value = (data_buf[0] << 8) | data_buf[1];
+  return true;
 }
 
-void MLX90632Component::update() {
-  ESP_LOGD(TAG, "%s === UPDATE CALLED ===", FW_VERSION);
-  if (this->is_failed()) {
-    ESP_LOGD(TAG, "%s Component is failed, returning", FW_VERSION);
-    return;
-  }
+// I2C Helper: Read 32-bit register (two 16-bit registers: LSW, MSW)
+bool MLX90632Component::read_register32(uint16_t lsw_reg, uint32_t *value) {
+  uint16_t lsw = 0, msw = 0;
   
-  // Log calibration data at every update
-  ESP_LOGD(TAG, "%s Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
-           FW_VERSION, mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
-           mlx90632_.Ga, mlx90632_.Gb, mlx90632_.Ka);
+  if (!read_register16(lsw_reg, &lsw)) return false;
+  if (!read_register16(lsw_reg + 1, &msw)) return false;
   
-  // Check if new data is available
-  if (!mlx90632_.isNewData()) {
-    ESP_LOGD(TAG, "%s No new data available yet", FW_VERSION);
-    return;
-  }
-  
-  ESP_LOGD(TAG, "%s New data available! Reading temperatures...", FW_VERSION);
-  
-  // Helper lambda to read 16-bit register with 16-bit address
-  auto read_reg = [this](uint16_t addr, uint16_t *value) {
-    uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
-    uint8_t data_buf[2] = {0};
-    if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
-      *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
-      return true;
-    }
-    return false;
+  *value = ((uint32_t)msw << 16) | lsw;
+  ESP_LOGD(TAG, "%s Read32 [0x%04X]: LSW=0x%04X MSW=0x%04X -> 0x%08X", 
+           FW_VERSION, lsw_reg, lsw, msw, *value);
+  return true;
+}
+
+// I2C Helper: Write 16-bit register (big-endian)
+bool MLX90632Component::write_register16(uint16_t reg, uint16_t value) {
+  uint8_t buf[4] = {
+    (uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF),
+    (uint8_t)(value >> 8), (uint8_t)(value & 0xFF)
   };
   
-  // Log RAM register values (Extended range mode)
-  uint16_t ram_52 = 0, ram_53 = 0, ram_54 = 0, ram_55 = 0, ram_56 = 0, ram_57 = 0;
+  if (this->write(buf, 4) != i2c::ERROR_OK) {
+    ESP_LOGW(TAG, "%s Failed to write register 0x%04X", FW_VERSION, reg);
+    return false;
+  }
+  return true;
+}
+
+// Setup: Initialize sensor
+void MLX90632Component::setup() {
+  ESP_LOGI(TAG, "%s Setting up MLX90632...", FW_VERSION);
   
-  read_reg(0x4005, &ram_52);  // RAM_52 - Object new
-  read_reg(0x4006, &ram_53);  // RAM_53 - Object old
-  read_reg(0x4007, &ram_54);  // RAM_54 - Ambient new
-  read_reg(0x4008, &ram_55);  // RAM_55 - Ambient new/old
-  read_reg(0x4009, &ram_56);  // RAM_56 - Ambient old
-  read_reg(0x400A, &ram_57);  // RAM_57 - Ambient ref
+  // Read product ID
+  uint16_t id0, id1, id2;
+  if (!read_register16(EE_ID0, &id0) || 
+      !read_register16(EE_ID1, &id1) || 
+      !read_register16(EE_ID2, &id2)) {
+    ESP_LOGE(TAG, "%s Failed to read product ID", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
   
-  ESP_LOGD(TAG, "%s [AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", FW_VERSION, ram_54, ram_57);
-  ESP_LOGD(TAG, "%s [OBJ-EXT] RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_55=0x%04X RAM_56=0x%04X", 
-           FW_VERSION, ram_52, ram_53, ram_54, ram_55, ram_56);
+  uint64_t product_id = ((uint64_t)id0 << 32) | ((uint64_t)id1 << 16) | id2;
+  ESP_LOGI(TAG, "%s Product ID: 0x%012llX", FW_VERSION, product_id);
   
-  // Read ambient temperature
-  double ambient_temp = mlx90632_.getAmbientTemperature();
-  ESP_LOGD(TAG, "%s Ambient temp read: %.2f°C", FW_VERSION, ambient_temp);
+  // Read calibration from EEPROM
+  if (!read_calibration()) {
+    ESP_LOGE(TAG, "%s Failed to read calibration", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
   
-  // Read object temperature
-  double object_temp = mlx90632_.getObjectTemperature();
-  ESP_LOGD(TAG, "%s Object temp read: %.2f°C", FW_VERSION, object_temp);
+  // Set continuous measurement mode
+  if (!write_register16(REG_CONTROL, CTRL_MODE_CONTINUOUS)) {
+    ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
   
-  // Publish ambient temperature if sensor is configured
+  ESP_LOGI(TAG, "%s MLX90632 initialized successfully", FW_VERSION);
+}
+
+// Read calibration constants from EEPROM
+bool MLX90632Component::read_calibration() {
+  ESP_LOGD(TAG, "%s Reading calibration from EEPROM...", FW_VERSION);
+  
+  // Read 32-bit constants
+  uint32_t ee_p_r, ee_p_g, ee_p_t, ee_p_o;
+  uint32_t ee_aa, ee_ab, ee_ba, ee_bb, ee_ca, ee_cb, ee_da, ee_db;
+  uint32_t ee_ea, ee_eb, ee_fa, ee_fb, ee_ga;
+  
+  if (!read_register32(EE_P_R_LSW, &ee_p_r)) return false;
+  if (!read_register32(EE_P_G_LSW, &ee_p_g)) return false;
+  if (!read_register32(EE_P_T_LSW, &ee_p_t)) return false;
+  if (!read_register32(EE_P_O_LSW, &ee_p_o)) return false;
+  if (!read_register32(EE_AA_LSW, &ee_aa)) return false;
+  if (!read_register32(EE_AB_LSW, &ee_ab)) return false;
+  if (!read_register32(EE_BA_LSW, &ee_ba)) return false;
+  if (!read_register32(EE_BB_LSW, &ee_bb)) return false;
+  if (!read_register32(EE_CA_LSW, &ee_ca)) return false;
+  if (!read_register32(EE_CB_LSW, &ee_cb)) return false;
+  if (!read_register32(EE_DA_LSW, &ee_da)) return false;
+  if (!read_register32(EE_DB_LSW, &ee_db)) return false;
+  if (!read_register32(EE_EA_LSW, &ee_ea)) return false;
+  if (!read_register32(EE_EB_LSW, &ee_eb)) return false;
+  if (!read_register32(EE_FA_LSW, &ee_fa)) return false;
+  if (!read_register32(EE_FB_LSW, &ee_fb)) return false;
+  if (!read_register32(EE_GA_LSW, &ee_ga)) return false;
+  
+  // Read 16-bit constants
+  uint16_t ee_gb, ee_ka, ee_kb, ee_ha, ee_hb;
+  if (!read_register16(EE_GB, &ee_gb)) return false;
+  if (!read_register16(EE_KA, &ee_ka)) return false;
+  if (!read_register16(EE_KB, &ee_kb)) return false;
+  if (!read_register16(EE_HA, &ee_ha)) return false;
+  if (!read_register16(EE_HB, &ee_hb)) return false;
+  
+  // Convert to calibration constants with scale factors
+  P_R = (double)(int32_t)ee_p_r * pow(2, -8);
+  P_G = (double)(int32_t)ee_p_g * pow(2, -20);
+  P_T = (double)(int32_t)ee_p_t * pow(2, -44);
+  P_O = (double)(int32_t)ee_p_o * pow(2, -8);
+  Aa = (double)(int32_t)ee_aa * pow(2, -16);
+  Ab = (double)(int32_t)ee_ab * pow(2, -16);
+  Ba = (double)(int32_t)ee_ba * pow(2, -32);
+  Bb = (double)(int32_t)ee_bb * pow(2, -32);
+  Ca = (double)(int32_t)ee_ca * pow(2, -28);
+  Cb = (double)(int32_t)ee_cb * pow(2, -32);
+  Da = (double)(int32_t)ee_da * pow(2, -22);
+  Db = (double)(int32_t)ee_db * pow(2, -22);
+  Ea = (double)(int32_t)ee_ea * pow(2, -20);
+  Eb = (double)(int32_t)ee_eb * pow(2, -20);
+  Fa = (double)(int32_t)ee_fa * pow(2, -12);
+  Fb = (double)(int32_t)ee_fb * pow(2, -10);
+  Ga = (double)(int32_t)ee_ga * pow(2, -20);
+  Gb = (double)(int16_t)ee_gb * pow(2, -10);
+  Ka = (double)(int16_t)ee_ka * pow(2, -8);
+  Kb = (int16_t)ee_kb;
+  Ha = (double)(int16_t)ee_ha * pow(2, -10);
+  Hb = (double)(int16_t)ee_hb * pow(2, -10);
+  
+  ESP_LOGI(TAG, "%s Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
+           FW_VERSION, P_R, P_G, Aa, Ba, Ga, Gb, Ka);
+  
+  return true;
+}
+
+// Check if new measurement data is available
+bool MLX90632Component::check_new_data() {
+  uint16_t status;
+  if (!read_register16(REG_STATUS, &status)) return false;
+  return (status & STATUS_NEW_DATA) != 0;
+}
+
+// Calculate ambient temperature
+float MLX90632Component::calculate_ambient_temperature() {
+  // Read RAM registers
+  uint16_t ram_ambient, ram_ref;
+  
+  if (measurement_mode_ == MEASUREMENT_MODE_EXTENDED) {
+    if (!read_register16(RAM_54, &ram_ambient)) return NAN;
+    if (!read_register16(RAM_57, &ram_ref)) return NAN;
+    ESP_LOGD(TAG, "%s [AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", FW_VERSION, ram_ambient, ram_ref);
+  } else {
+    if (!read_register16(RAM_6, &ram_ambient)) return NAN;
+    if (!read_register16(RAM_9, &ram_ref)) return NAN;
+    ESP_LOGD(TAG, "%s [AMB-MED] RAM_6=0x%04X RAM_9=0x%04X", FW_VERSION, ram_ambient, ram_ref);
+  }
+  
+  int16_t ambient = (int16_t)ram_ambient;
+  int16_t ref = (int16_t)ram_ref;
+  
+  // Ambient temperature calculation (Melexis algorithm)
+  double VRTA = ref + (ref - ambient) / 0.02;
+  double AMB = Aa + Ba * VRTA;
+  double amb_diff = ambient - AMB;
+  double PTAT = amb_diff + Gb * amb_diff * amb_diff;
+  double ambient_temp = PTAT / (1 + Ka * P_R) + 25.0;
+  
+  return (float)ambient_temp;
+}
+
+// Calculate object temperature
+float MLX90632Component::calculate_object_temperature() {
+  // Read RAM registers
+  uint16_t ram_52, ram_53, ram_54, ram_56;
+  
+  if (!read_register16(RAM_52, &ram_52)) return NAN;
+  if (!read_register16(RAM_53, &ram_53)) return NAN;
+  if (!read_register16(RAM_54, &ram_54)) return NAN;
+  if (!read_register16(RAM_56, &ram_56)) return NAN;
+  
+  ESP_LOGD(TAG, "%s [OBJ] RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_56=0x%04X", 
+           FW_VERSION, ram_52, ram_53, ram_54, ram_56);
+  
+  int16_t object_new = (int16_t)ram_52;
+  int16_t object_old = (int16_t)ram_53;
+  int16_t ambient_new = (int16_t)ram_54;
+  int16_t ambient_old = (int16_t)ram_56;
+  
+  // Simplified object temperature calculation
+  // TODO: Implement full Melexis DSPv5 algorithm with iterations
+  double VR_Ta = ambient_new + Gb * (ambient_new - ambient_old);
+  double amb_temp = VR_Ta / (1 + Ka * P_R) + 25.0;
+  
+  double S = object_new - object_old;
+  double object_temp = amb_temp + S * 0.01;  // Placeholder calculation
+  
+  return (float)object_temp;
+}
+
+// Update: Read and publish temperatures
+void MLX90632Component::update() {
+  ESP_LOGD(TAG, "%s === UPDATE CALLED ===", FW_VERSION);
+  
+  if (this->is_failed()) {
+    ESP_LOGD(TAG, "%s Component failed", FW_VERSION);
+    return;
+  }
+  
+  // Check for new data
+  if (!check_new_data()) {
+    ESP_LOGV(TAG, "%s No new data", FW_VERSION);
+    return;
+  }
+  
+  // Calculate temperatures
+  float ambient_temp = calculate_ambient_temperature();
+  float object_temp = calculate_object_temperature();
+  
+  ESP_LOGD(TAG, "%s Ambient: %.2f°C, Object: %.2f°C", FW_VERSION, ambient_temp, object_temp);
+  
+  // Publish to sensors
   if (ambient_temperature_sensor_ != nullptr) {
     ambient_temperature_sensor_->publish_state(ambient_temp);
   }
-  
-  // Publish object temperature if sensor is configured
   if (object_temperature_sensor_ != nullptr) {
     object_temperature_sensor_->publish_state(object_temp);
   }
-  
-  // Reset new data flag for next measurement
-  mlx90632_.resetNewData();
 }
 
+// Dump config
 void MLX90632Component::dump_config() {
-  ESP_LOGCONFIG(TAG, "MLX90632 Temperature Sensor");
+  ESP_LOGCONFIG(TAG, "MLX90632:");
   LOG_I2C_DEVICE(this);
   LOG_UPDATE_INTERVAL(this);
-  
-  if (object_temperature_sensor_ != nullptr) {
-    LOG_SENSOR("  ", "Object Temperature", object_temperature_sensor_);
-  }
-  if (ambient_temperature_sensor_ != nullptr) {
-    LOG_SENSOR("  ", "Ambient Temperature", ambient_temperature_sensor_);
-  }
-  
-  if (this->is_failed()) {
-    ESP_LOGE(TAG, "  Failed to initialize MLX90632");
-  }
+  LOG_SENSOR("  ", "Ambient Temperature", ambient_temperature_sensor_);
+  LOG_SENSOR("  ", "Object Temperature", object_temperature_sensor_);
 }
 
 }  // namespace mlx90632

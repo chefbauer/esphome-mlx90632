@@ -3,49 +3,66 @@
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/i2c/i2c.h"
-#include "Adafruit_MLX90632.h"
+#include "mlx90632_registers.h"
+#include <cmath>
 
 namespace esphome {
 namespace mlx90632 {
 
-// Import Adafruit MLX90632 enums into esphome::mlx90632 namespace
-using ::mlx90632_meas_select_t;
-using ::mlx90632_refresh_rate_t;
-using ::mlx90632_mode_t;
+enum MeasurementMode {
+  MEASUREMENT_MODE_MEDICAL = 0,
+  MEASUREMENT_MODE_EXTENDED = 1
+};
 
-// Import enum values
-static constexpr auto MLX90632_MEAS_MEDICAL = ::MLX90632_MEAS_MEDICAL;
-static constexpr auto MLX90632_MEAS_EXTENDED_RANGE = ::MLX90632_MEAS_EXTENDED_RANGE;
-static constexpr auto MLX90632_REFRESH_0_5HZ = ::MLX90632_REFRESH_0_5HZ;
-static constexpr auto MLX90632_REFRESH_1HZ = ::MLX90632_REFRESH_1HZ;
-static constexpr auto MLX90632_REFRESH_2HZ = ::MLX90632_REFRESH_2HZ;
-static constexpr auto MLX90632_REFRESH_4HZ = ::MLX90632_REFRESH_4HZ;
-static constexpr auto MLX90632_REFRESH_8HZ = ::MLX90632_REFRESH_8HZ;
-static constexpr auto MLX90632_REFRESH_16HZ = ::MLX90632_REFRESH_16HZ;
-static constexpr auto MLX90632_REFRESH_32HZ = ::MLX90632_REFRESH_32HZ;
-static constexpr auto MLX90632_REFRESH_64HZ = ::MLX90632_REFRESH_64HZ;
-static constexpr auto MLX90632_MODE_CONTINUOUS = ::MLX90632_MODE_CONTINUOUS;
+enum RefreshRate {
+  REFRESH_RATE_0_5HZ = 0,
+  REFRESH_RATE_1HZ = 1,
+  REFRESH_RATE_2HZ = 2,
+  REFRESH_RATE_4HZ = 3,
+  REFRESH_RATE_8HZ = 4,
+  REFRESH_RATE_16HZ = 5,
+  REFRESH_RATE_32HZ = 6,
+  REFRESH_RATE_64HZ = 7
+};
 
 class MLX90632Component : public PollingComponent, public i2c::I2CDevice {
  public:
   void setup() override;
   void update() override;
   void dump_config() override;
+  float get_setup_priority() const override { return setup_priority::DATA; }
 
   void set_object_temperature_sensor(sensor::Sensor *sensor) { object_temperature_sensor_ = sensor; }
   void set_ambient_temperature_sensor(sensor::Sensor *sensor) { ambient_temperature_sensor_ = sensor; }
-  void set_measurement_select(mlx90632_meas_select_t meas_select) { measurement_select_ = meas_select; }
-  void set_refresh_rate(mlx90632_refresh_rate_t refresh_rate) { refresh_rate_ = refresh_rate; }
-  void set_emissivity(double emissivity) { emissivity_ = emissivity; }
-  double get_emissivity() const { return (emissivity_ == 0.0) ? 1.0 : emissivity_; }
+  void set_measurement_mode(MeasurementMode mode) { measurement_mode_ = mode; }
+  void set_refresh_rate(RefreshRate rate) { refresh_rate_ = rate; }
+  void set_emissivity(float emissivity) { emissivity_ = emissivity; }
 
  protected:
-  Adafruit_MLX90632 mlx90632_;
+  // I2C read/write helpers
+  bool read_register16(uint16_t reg, uint16_t *value);
+  bool read_register32(uint16_t lsw_reg, uint32_t *value);
+  bool write_register16(uint16_t reg, uint16_t value);
+  
+  // Sensor functions
+  bool check_new_data();
+  bool read_calibration();
+  float calculate_ambient_temperature();
+  float calculate_object_temperature();
+  
+  // Calibration constants (from EEPROM)
+  double P_R, P_G, P_T, P_O;
+  double Aa, Ab, Ba, Bb, Ca, Cb, Da, Db;
+  double Ea, Eb, Fa, Fb, Ga, Gb, Ka, Ha, Hb;
+  int16_t Kb;
+  double TO0{25.0};  // Previous object temperature
+  double TA0{25.0};  // Previous ambient temperature
+  
   sensor::Sensor *object_temperature_sensor_{nullptr};
   sensor::Sensor *ambient_temperature_sensor_{nullptr};
-  mlx90632_meas_select_t measurement_select_{MLX90632_MEAS_MEDICAL};
-  mlx90632_refresh_rate_t refresh_rate_{MLX90632_REFRESH_2HZ};
-  double emissivity_{1.0};
+  MeasurementMode measurement_mode_{MEASUREMENT_MODE_EXTENDED};
+  RefreshRate refresh_rate_{REFRESH_RATE_2HZ};
+  float emissivity_{1.0};
 };
 
 }  // namespace mlx90632
