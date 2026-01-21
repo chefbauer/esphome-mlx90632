@@ -21,6 +21,9 @@ void MLX90632Component::setup() {
     return;
   }
   
+  // Set ESPHome I2CDevice for atomic write-read transactions
+  mlx90632_.i2c_dev->set_esphome_device(this);
+  
   // Set to continuous mode for polling
   if (!mlx90632_.setMode(MLX90632_MODE_CONTINUOUS)) {
     ESP_LOGE(TAG, "Failed to set measurement mode");

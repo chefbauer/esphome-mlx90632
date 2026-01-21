@@ -6,6 +6,8 @@
 
 #include "Adafruit_I2CDevice.h"
 #include "I2CInterface.h"
+#include "esphome/components/i2c/i2c.h"
+#include "esphome/components/i2c/i2c.h"
 
 // Delay function for ESP-IDF/ESPHome
 #if defined(delay)
@@ -151,25 +153,30 @@ bool Adafruit_I2CDevice::read_then_write(const uint8_t *write_buffer,
                                           size_t write_len,
                                           uint8_t *read_buffer,
                                           size_t read_len, bool stop) {
-  if (!_wire || !write_buffer || !read_buffer || write_len == 0 || read_len == 0) {
+  if (!write_buffer || !read_buffer || write_len == 0 || read_len == 0) {
+    return false;
+  }
+
+  // Use ESPHome's I2CDevice directly for atomic write-read transaction (repeated START)
+  if (esphome_device_) {
+    auto err = esphome_device_->write_read(write_buffer, write_len, read_buffer, read_len);
+    return (err == esphome::i2c::ERROR_OK);
+  }
+
+  // Fallback to I2CInterface (should not be reached for MLX90632)
+  if (!_wire) {
     return false;
   }
 
   I2CInterface* wire = (I2CInterface*)_wire;
   
-  // Write register address then read data (combined I2C transaction)
   wire->beginTransmission(_addr);
-  
-  // Write register address
   if (wire->write(write_buffer, write_len) != write_len) {
     wire->endTransmission();
     return false;
   }
-  
-  // End transmission but don't send STOP (repeated START)
   wire->endTransmission(false);
   
-  // Request and read data
   uint8_t received = wire->requestFrom(_addr, read_len);
   if (received != read_len) {
     return false;

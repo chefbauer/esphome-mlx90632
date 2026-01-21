@@ -15,6 +15,10 @@
 
 // Forward declare I2CInterface
 class I2CInterface;
+
+// Forward declaration for ESPHome I2CDevice
+namespace esphome { namespace i2c { class I2CDevice; } }
+
 class Adafruit_I2CDevice {
 public:
   /**
@@ -24,6 +28,12 @@ public:
    */
   Adafruit_I2CDevice(uint8_t addr, void *theWire = nullptr);
   ~Adafruit_I2CDevice();
+
+  /**
+   * @brief Set ESPHome I2CDevice for direct atomic transactions
+   * @param device Pointer to ESPHome I2CDevice
+   */
+  void set_esphome_device(esphome::i2c::I2CDevice *device) { esphome_device_ = device; }
 
   /**
    * @brief Initialize I2C device
@@ -93,6 +103,7 @@ private:
   uint8_t _addr;
   void *_wire;  // TwoWire* (ESPHome I2C interface)
   bool _begun;
+  esphome::i2c::I2CDevice *esphome_device_{nullptr};  // Direct ESPHome I2CDevice access
 };
 
 #endif // _ADAFRUIT_I2CDEVICE_H
