@@ -89,26 +89,27 @@ void MLX90632Component::setup() {
     return;
   }
   
-  // Verify control register was set
-  delay(100);  // Give sensor time to wake up (100ms)
-  uint16_t ctrl_after;
-  if (read_register16(REG_CONTROL, &ctrl_after)) {
-    ESP_LOGD(TAG, "%s Control register after: 0x%04X (expected 0x%04X)", 
-             FW_VERSION, ctrl_after, ctrl_value);
-    if ((ctrl_after & CTRL_MODE_CONTINUOUS) == 0) {
-      ESP_LOGW(TAG, "%s Sensor not in continuous mode!", FW_VERSION);
+  // Verify control register was set (give sensor time to wake up)
+  this->set_timeout(100, [this]() {
+    uint16_t ctrl_after;
+    if (read_register16(REG_CONTROL, &ctrl_after)) {
+      ESP_LOGD(TAG, "%s Control register after: 0x%04X (expected 0x%04X)", 
+               FW_VERSION, ctrl_after, CTRL_MODE_CONTINUOUS | CTRL_SOB);
+      if ((ctrl_after & CTRL_MODE_CONTINUOUS) == 0) {
+        ESP_LOGW(TAG, "%s Sensor not in continuous mode!", FW_VERSION);
+      }
     }
-  }
-  
-  // Read initial status
-  uint16_t status;
-  if (read_register16(REG_STATUS, &status)) {
-    ESP_LOGD(TAG, "%s Initial status: 0x%04X (NewData=%d, EEBusy=%d, DevBusy=%d)", 
-             FW_VERSION, status, 
-             (status & STATUS_NEW_DATA) ? 1 : 0,
-             (status & STATUS_EEPROM_BUSY) ? 1 : 0,
-             (status & STATUS_DEVICE_BUSY) ? 1 : 0);
-  }
+    
+    // Read initial status
+    uint16_t status;
+    if (read_register16(REG_STATUS, &status)) {
+      ESP_LOGD(TAG, "%s Initial status: 0x%04X (NewData=%d, EEBusy=%d, DevBusy=%d)", 
+               FW_VERSION, status, 
+               (status & STATUS_NEW_DATA) ? 1 : 0,
+               (status & STATUS_EEPROM_BUSY) ? 1 : 0,
+               (status & STATUS_DEVICE_BUSY) ? 1 : 0);
+    }
+  });
   
   ESP_LOGI(TAG, "%s MLX90632 initialized successfully", FW_VERSION);
 }
