@@ -282,7 +282,7 @@ float MLX90632Sensor::calculate_object_temperature() {
 
 // Update: Read and publish temperatures
 void MLX90632Sensor::update() {
-  ESP_LOGD(TAG, "%s === UPDATE CALLED ===", FW_VERSION);
+  ESP_LOGD(TAG, "%s === UPDATE CALLED === (ready=%d, count=%d)", FW_VERSION, setup_complete_, update_count_);
   
   if (this->is_failed()) {
     ESP_LOGD(TAG, "%s Component failed", FW_VERSION);
@@ -293,7 +293,7 @@ void MLX90632Sensor::update() {
   if (!this->is_ready()) {
     update_count_++;
     if (update_count_ < 3) {
-      ESP_LOGD(TAG, "%s Waiting for setup (update #%d)", FW_VERSION, update_count_);
+      ESP_LOGW(TAG, "%s Waiting for setup (update #%d) - setup_complete=%d", FW_VERSION, update_count_, setup_complete_);
       return;
     }
     // After 3 updates, force setup if not called yet
