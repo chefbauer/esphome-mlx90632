@@ -80,27 +80,37 @@ void MLX90632Component::setup() {
 }
 
 void MLX90632Component::update() {
-  ESP_LOGI(TAG, "=== UPDATE CALLED ===");
+  static bool calibration_logged = false;
+  
+  ESP_LOGD(TAG, "=== UPDATE CALLED ===");
   if (this->is_failed()) {
-    ESP_LOGI(TAG, "Component is failed, returning");
+    ESP_LOGD(TAG, "Component is failed, returning");
     return;
+  }
+  
+  // Log calibration data once
+  if (!calibration_logged) {
+    ESP_LOGI(TAG, "Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
+             mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
+             mlx90632_.Ga, mlx90632_.Gb, mlx90632_.Ka);
+    calibration_logged = true;
   }
   
   // Check if new data is available
   if (!mlx90632_.isNewData()) {
-    ESP_LOGI(TAG, "No new data available yet");
+    ESP_LOGD(TAG, "No new data available yet");
     return;
   }
   
-  ESP_LOGI(TAG, "New data available! Reading temperatures...");
+  ESP_LOGD(TAG, "New data available! Reading temperatures...");
   
   // Read ambient temperature
   double ambient_temp = mlx90632_.getAmbientTemperature();
-  ESP_LOGI(TAG, "Ambient temp read: %.2f°C", ambient_temp);
+  ESP_LOGD(TAG, "Ambient temp read: %.2f°C", ambient_temp);
   
   // Read object temperature
   double object_temp = mlx90632_.getObjectTemperature();
-  ESP_LOGI(TAG, "Object temp read: %.2f°C", object_temp);
+  ESP_LOGD(TAG, "Object temp read: %.2f°C", object_temp);
   
   // Publish ambient temperature if sensor is configured
   if (ambient_temperature_sensor_ != nullptr) {
