@@ -4,7 +4,7 @@
 
 namespace esphome {
 namespace mlx90632 {
-#define FW_VERSION "V.19"  // Firmware version for debugging
+#define FW_VERSION "V.20"  // Firmware version for debugging
 static const char *TAG = "mlx90632";
 
 void MLX90632Component::setup() {
@@ -86,31 +86,6 @@ void MLX90632Component::update() {
     return;
   }
   
-  // Helper lambda to read 16-bit register with 16-bit address
-  auto read_reg = [this](uint16_t addr, uint16_t *value) {
-    uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
-    uint8_t data_buf[2] = {0};
-    if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
-      *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
-      return true;
-    }
-    return false;
-  };
-  
-  // Read raw EEPROM values to diagnose calibration issue
-  uint16_t p_r_lsw = 0, p_r_msw = 0;
-  uint16_t gb = 0, ka = 0;
-  
-  read_reg(0x243D, &p_r_lsw);  // P_R LSW
-  read_reg(0x243E, &p_r_msw);  // P_R MSW
-  read_reg(0x2455, &gb);       // Gb
-  read_reg(0x2456, &ka);       // Ka
-  
-  uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
-  
-  ESP_LOGD(TAG, "%s [RAW-EEPROM] P_R: LSW=0x%04X MSW=0x%04X -> 0x%08X | Gb=0x%04X Ka=0x%04X", 
-           FW_VERSION, p_r_lsw, p_r_msw, ee_p_r, gb, ka);
-  
   // Log calibration data at every update
   ESP_LOGD(TAG, "%s Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
            FW_VERSION, mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
@@ -123,6 +98,17 @@ void MLX90632Component::update() {
   }
   
   ESP_LOGD(TAG, "%s New data available! Reading temperatures...", FW_VERSION);
+  
+  // Helper lambda to read 16-bit register with 16-bit address
+  auto read_reg = [this](uint16_t addr, uint16_t *value) {
+    uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
+    uint8_t data_buf[2] = {0};
+    if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
+      *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
+      return true;
+    }
+    return false;
+  };
   
   // Log RAM register values (Extended range mode)
   uint16_t ram_52 = 0, ram_53 = 0, ram_54 = 0, ram_55 = 0, ram_56 = 0, ram_57 = 0;
