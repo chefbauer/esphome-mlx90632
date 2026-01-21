@@ -429,44 +429,41 @@ double Adafruit_MLX90632::getAmbientTemperature() {
 }
 
 /*!
- *    @brief  Calculate object temperature
- *    @return Object temperature in degrees Celsius or NaN if invalid cycle position
+ *    @brief  Calculate object temperature (Melexis algorithm with 5 iterations for maximum accuracy)
+ *    @return Object temperature in degrees Celsius
  */
 double Adafruit_MLX90632::getObjectTemperature() {
-  // Check measurement mode to determine which calculation to use
+  // Check measurement mode
   mlx90632_meas_select_t meas_mode = getMeasurementSelect();
 
-  double S;
-  int16_t ram_ambient, ram_ref;
+  int16_t object_new_raw, object_old_raw, ambient_new_raw, ambient_old_raw;
 
   if (meas_mode == MLX90632_MEAS_EXTENDED_RANGE) {
-    // Extended range mode: use RAM_52-59
+    // Extended range mode: read RAM_52-59
     Adafruit_BusIO_Register ram52_reg = Adafruit_BusIO_Register(
         i2c_dev, swapBytes(MLX90632_REG_RAM_52), 2, MSBFIRST, 2);
     Adafruit_BusIO_Register ram53_reg = Adafruit_BusIO_Register(
         i2c_dev, swapBytes(MLX90632_REG_RAM_53), 2, MSBFIRST, 2);
     Adafruit_BusIO_Register ram54_reg = Adafruit_BusIO_Register(
         i2c_dev, swapBytes(MLX90632_REG_RAM_54), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram55_reg = Adafruit_BusIO_Register(
+        i2c_dev, swapBytes(MLX90632_REG_RAM_55), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram56_reg = Adafruit_BusIO_Register(
+        i2c_dev, swapBytes(MLX90632_REG_RAM_56), 2, MSBFIRST, 2);
     Adafruit_BusIO_Register ram57_reg = Adafruit_BusIO_Register(
         i2c_dev, swapBytes(MLX90632_REG_RAM_57), 2, MSBFIRST, 2);
-    Adafruit_BusIO_Register ram58_reg = Adafruit_BusIO_Register(
-        i2c_dev, swapBytes(MLX90632_REG_RAM_58), 2, MSBFIRST, 2);
-    Adafruit_BusIO_Register ram59_reg = Adafruit_BusIO_Register(
-        i2c_dev, swapBytes(MLX90632_REG_RAM_59), 2, MSBFIRST, 2);
 
-    int16_t ram52 = (int16_t)ram52_reg.read();
-    int16_t ram53 = (int16_t)ram53_reg.read();
+    object_new_raw = (int16_t)ram52_reg.read();
+    object_old_raw = (int16_t)ram53_reg.read();
+    ambient_new_raw = (int16_t)ram54_reg.read();
+    int16_t ambient_new_old = (int16_t)ram55_reg.read();
+    ambient_old_raw = (int16_t)ram56_reg.read();
 
-    ram_ambient = (int16_t)ram54_reg.read();
-    int16_t ram57 = (int16_t)ram57_reg.read();
-    int16_t ram58 = (int16_t)ram58_reg.read();
-    int16_t ram59 = (int16_t)ram59_reg.read();
-
-    S = (double)ram52 + (double)ram53 * 0.003815;
-    ram_ref = ram57;
-
+    return calcObjectTemperatureExtended(object_new_raw, object_old_raw, ambient_new_raw, 
+                                         ambient_old_raw, Ka, Gb, Ea, Eb, Ga, Fa / 2.0, 
+                                         Fb, Ha, Hb);
   } else {
-    // Medical mode: use RAM_4-9
+    // Medical mode: read RAM_4-9
     Adafruit_BusIO_Register ram4_reg = Adafruit_BusIO_Register(
         i2c_dev, swapBytes(MLX90632_REG_RAM_4), 2, MSBFIRST, 2);
     Adafruit_BusIO_Register ram5_reg = Adafruit_BusIO_Register(
@@ -480,22 +477,14 @@ double Adafruit_MLX90632::getObjectTemperature() {
     Adafruit_BusIO_Register ram9_reg = Adafruit_BusIO_Register(
         i2c_dev, swapBytes(MLX90632_REG_RAM_9), 2, MSBFIRST, 2);
 
-    int16_t ram4 = (int16_t)ram4_reg.read();
-    int16_t ram5 = (int16_t)ram5_reg.read();
+    object_new_raw = (int16_t)ram4_reg.read();
+    object_old_raw = (int16_t)ram5_reg.read();
+    ambient_new_raw = (int16_t)ram6_reg.read();
+    ambient_old_raw = (int16_t)ram9_reg.read();
 
-    ram_ambient = (int16_t)ram6_reg.read();
-    ram_ref = (int16_t)ram9_reg.read();
-
-    S = (double)ram4 + (double)ram5 * 0.003815;
+    return calcObjectTemperatureMedical(object_new_raw, object_old_raw, ambient_new_raw,
+                                       ambient_old_raw, Ka, Gb, Ea, Eb, Ga, Fa, Fb, Ha, Hb);
   }
-
-  // Stefan-Boltzmann law calculation
-  double VRTA = ram_ref + (ram_ref - ram_ambient) / 0.02;
-  double AMB = Aa + Ba * VRTA;
-  double object_temp = pow(S / (Fa * (1 + Fb * (TA0 - 25.0))) + pow(TA0 + 273.15, 4), 0.25) - 273.15;
-
-  TO0 = object_temp;
-  return object_temp;
 }
 
 /*!
@@ -505,4 +494,209 @@ double Adafruit_MLX90632::getObjectTemperature() {
  */
 uint16_t Adafruit_MLX90632::swapBytes(uint16_t value) {
   return (value << 8) | (value >> 8);
+}
+
+// Global emissivity variable for temperature calculations
+static double mlx90632_emissivity = 0.0;
+
+/*!
+ *    @brief  Preprocess ambient temperature measurement (Melexis algorithm)
+ *    @param  ambient_new_raw New ambient raw reading
+ *    @param  ambient_old_raw Old ambient raw reading
+ *    @param  Gb Ambient gain coefficient
+ *    @return Preprocessed ambient value
+ */
+double Adafruit_MLX90632::preprocessAmbient(int16_t ambient_new_raw, int16_t ambient_old_raw, double Gb) {
+  const double MLX90632_REF_3 = 12.0;
+  double kGb = Gb / 1024.0;
+  double VR_Ta = ambient_old_raw + kGb * (ambient_new_raw / MLX90632_REF_3);
+  return ((ambient_new_raw / MLX90632_REF_3) / VR_Ta) * 524288.0;
+}
+
+/*!
+ *    @brief  Preprocess object temperature measurement (Melexis algorithm, medical mode)
+ *    @param  object_new_raw New object raw reading
+ *    @param  object_old_raw Old object raw reading
+ *    @param  ambient_new_raw New ambient raw reading
+ *    @param  Ka IR gain coefficient
+ *    @return Preprocessed object value
+ */
+double Adafruit_MLX90632::preprocessObject(int16_t object_new_raw, int16_t object_old_raw,
+                                           int16_t ambient_new_raw, double Ka) {
+  const double MLX90632_REF_3 = 12.0;
+  const double MLX90632_REF_12 = 12.0;
+  double kKa = Ka / 1024.0;
+  double VR_IR = ambient_old_raw + kKa * (ambient_new_raw / MLX90632_REF_3);
+  return ((((object_new_raw + object_old_raw) / 2.0) / MLX90632_REF_12) / VR_IR) * 524288.0;
+}
+
+/*!
+ *    @brief  Preprocess object (extended mode, Melexis algorithm)
+ *    @param  object_new_raw New object raw reading
+ *    @param  ambient_new_raw New ambient raw reading
+ *    @param  ambient_old_raw Old ambient raw reading
+ *    @param  Ka IR gain coefficient
+ *    @return Preprocessed object value
+ */
+double Adafruit_MLX90632::preprocessObjectExtended(int16_t object_new_raw, int16_t ambient_new_raw,
+                                                   int16_t ambient_old_raw, double Ka) {
+  const double MLX90632_REF_3 = 12.0;
+  const double MLX90632_REF_12 = 12.0;
+  double kKa = Ka / 1024.0;
+  double VR_IR = ambient_old_raw + kKa * (ambient_new_raw / MLX90632_REF_3);
+  return ((object_new_raw / MLX90632_REF_12) / VR_IR) * 524288.0;
+}
+
+/*!
+ *    @brief  Iterative object temperature calculation (medical mode)
+ *    @param  prev_object_temp Previous temperature estimate
+ *    @param  object Preprocessed object value
+ *    @param  TAdut Ambient temperature (Kelvin reference)
+ *    @param  Ga Gain coefficient
+ *    @param  Fa Emissivity coefficient
+ *    @param  Fb Emissivity coefficient
+ *    @param  Ha Ambient offset
+ *    @param  Hb Temperature offset
+ *    @return Refined temperature estimate
+ */
+double Adafruit_MLX90632::calcObjectIteration(double prev_object_temp, double object, double TAdut,
+                                              double Ga, double Fa, double Fb, double Ha, double Hb) {
+  double Ha_customer = Ha / 16384.0;
+  double Hb_customer = Hb / 1024.0;
+  
+  double calcedGa = (Ga * (prev_object_temp - 25.0)) / 68719476736.0;  // 2^36
+  double KsTAtmp = Fb * (TAdut - 25.0);
+  double calcedGb = KsTAtmp / 68719476736.0;  // 2^36
+  
+  const double POW10 = 1000000000000000000.0;  // 10^18
+  double Alpha_corr = ((Fa * POW10) * Ha_customer * (1.0 + calcedGa + calcedGb)) / 70368744177664.0;  // 2^46
+  
+  double emissivity = getEmissivity();  // Returns 1.0 if not set
+  double calcedFa = object / (emissivity * (Alpha_corr / POW10));
+  
+  double TAdut4 = (TAdut + 273.15) * (TAdut + 273.15) * (TAdut + 273.15) * (TAdut + 273.15);
+  double first_sqrt = sqrt(calcedFa + TAdut4);
+  
+  return sqrt(first_sqrt) - 273.15 - Hb_customer;
+}
+
+/*!
+ *    @brief  Iterative object temperature calculation (extended mode)
+ *    @param  prev_object_temp Previous temperature estimate
+ *    @param  object Preprocessed object value
+ *    @param  TAdut Ambient temperature (Kelvin reference)
+ *    @param  TaTr4 Reflected temperature to the 4th power
+ *    @param  Ga Gain coefficient
+ *    @param  Fa Emissivity coefficient (halved for extended mode)
+ *    @param  Fb Emissivity coefficient
+ *    @param  Ha Ambient offset
+ *    @param  Hb Temperature offset
+ *    @return Refined temperature estimate
+ */
+double Adafruit_MLX90632::calcObjectIterationExtended(double prev_object_temp, double object, double TAdut,
+                                                      double TaTr4, double Ga, double Fa, double Fb,
+                                                      double Ha, double Hb) {
+  double Ha_customer = Ha / 16384.0;
+  double Hb_customer = Hb / 1024.0;
+  
+  double calcedGa = (Ga * (prev_object_temp - 25.0)) / 68719476736.0;  // 2^36
+  double KsTAtmp = Fb * (TAdut - 25.0);
+  double calcedGb = KsTAtmp / 68719476736.0;  // 2^36
+  
+  const double POW10 = 1000000000000000000.0;  // 10^18
+  double Alpha_corr = ((Fa * POW10) * Ha_customer * (1.0 + calcedGa + calcedGb)) / 70368744177664.0;  // 2^46
+  
+  double emissivity = getEmissivity();
+  double calcedFa = object / (emissivity * (Alpha_corr / POW10));
+  
+  double first_sqrt = sqrt(calcedFa + TaTr4);
+  
+  return sqrt(first_sqrt) - 273.15 - Hb_customer;
+}
+
+/*!
+ *    @brief  Calculate object temperature (medical mode, Melexis exact algorithm)
+ *    @return Object temperature in degrees Celsius
+ */
+double Adafruit_MLX90632::calcObjectTemperatureMedical(int16_t object_new_raw, int16_t object_old_raw,
+                                                      int16_t ambient_new_raw, int16_t ambient_old_raw,
+                                                      double Ka, double Gb, double Ea, double Eb,
+                                                      double Ga, double Fa, double Fb, double Ha, double Hb) {
+  // Preprocess measurements
+  double AMB = preprocessAmbient(ambient_new_raw, ambient_old_raw, Gb);
+  double object = preprocessObject(object_new_raw, object_old_raw, ambient_new_raw, Ka);
+  
+  // Convert ambient to device temperature
+  double kEa = Ea / 65536.0;
+  double kEb = Eb / 256.0;
+  double TAdut = ((AMB - kEb) / kEa) + 25.0;
+  
+  // Initial temperature estimate
+  double temp = 25.0;
+  
+  // 5 iterations for accuracy (Melexis DSPv5 requirement)
+  for (int i = 0; i < 5; i++) {
+    temp = calcObjectIteration(temp, object, TAdut, Ga, Fa, Fb, Ha, Hb);
+  }
+  
+  TO0 = temp;
+  return temp;
+}
+
+/*!
+ *    @brief  Calculate object temperature (extended mode, Melexis exact algorithm)
+ *    @return Object temperature in degrees Celsius
+ */
+double Adafruit_MLX90632::calcObjectTemperatureExtended(int16_t object_new_raw, int16_t object_old_raw,
+                                                       int16_t ambient_new_raw, int16_t ambient_old_raw,
+                                                       double Ka, double Gb, double Ea, double Eb,
+                                                       double Ga, double Fa_half, double Fb, double Ha, double Hb) {
+  // Preprocess measurements
+  double AMB = preprocessAmbient(ambient_new_raw, ambient_old_raw, Gb);
+  double object = preprocessObjectExtended(object_new_raw, ambient_new_raw, ambient_old_raw, Ka);
+  
+  // Convert ambient to device temperature
+  double kEa = Ea / 65536.0;
+  double kEb = Eb / 256.0;
+  double TAdut = ((AMB - kEb) / kEa) + 25.0;
+  
+  // Reflected temperature calculation
+  double TaTr4 = (object_old_raw + 273.15);  // Use old ambient as reference
+  TaTr4 = TaTr4 * TaTr4 * TaTr4 * TaTr4;  // Fourth power
+  double ta4 = (TAdut + 273.15);
+  ta4 = ta4 * ta4 * ta4 * ta4;
+  
+  double emissivity = getEmissivity();
+  TaTr4 = TaTr4 - (TaTr4 - ta4) / emissivity;
+  
+  // Initial temperature estimate
+  double temp = 25.0;
+  
+  // 5 iterations for accuracy
+  for (int i = 0; i < 5; i++) {
+    temp = calcObjectIterationExtended(temp, object, TAdut, TaTr4, Ga, Fa_half, Fb, Ha, Hb);
+  }
+  
+  TO0 = temp;
+  return temp;
+}
+
+/*!
+ *    @brief  Set the emissivity value for temperature calculations
+ *    @param  value Emissivity value (0.0-1.0, where 0.0 defaults to 1.0)
+ */
+void Adafruit_MLX90632::setEmissivity(double value) {
+  mlx90632_emissivity = value;
+}
+
+/*!
+ *    @brief  Get the current emissivity value
+ *    @return Emissivity value (1.0 if not set or set to 0.0)
+ */
+double Adafruit_MLX90632::getEmissivity() const {
+  if (mlx90632_emissivity == 0.0) {
+    return 1.0;
+  } else {
+    return mlx90632_emissivity;
+  }
 }

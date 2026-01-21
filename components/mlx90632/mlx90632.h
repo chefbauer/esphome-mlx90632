@@ -20,6 +20,7 @@ class MLX90632Component : public PollingComponent, public i2c::I2CDevice {
   void set_measurement_select(mlx90632_meas_select_t meas_select) { measurement_select_ = meas_select; }
   void set_refresh_rate(mlx90632_refresh_rate_t refresh_rate) { refresh_rate_ = refresh_rate; }
   void set_emissivity(double emissivity) { emissivity_ = emissivity; }
+  double get_emissivity() const { return (emissivity_ == 0.0) ? 1.0 : emissivity_; }
 
  private:
   Adafruit_MLX90632 mlx90632_;

@@ -224,6 +224,8 @@ class Adafruit_MLX90632 {
   bool getCalibrations();
   double getAmbientTemperature();
   double getObjectTemperature();
+  void setEmissivity(double value);
+  double getEmissivity() const;
 
  private:
   Adafruit_I2CDevice* i2c_dev; ///< Pointer to I2C bus interface
@@ -231,6 +233,26 @@ class Adafruit_MLX90632 {
       uint16_t value); ///< Byte swap helper for register addresses
   uint32_t read32BitRegister(
       uint16_t lsw_addr); ///< Helper to read 32-bit values
+  
+  // Helper functions for temperature calculation (Melexis algorithm)
+  double preprocessAmbient(int16_t ambient_new_raw, int16_t ambient_old_raw, double Gb);
+  double preprocessObject(int16_t object_new_raw, int16_t object_old_raw,
+                          int16_t ambient_new_raw, double Ka);
+  double preprocessObjectExtended(int16_t object_new_raw, int16_t ambient_new_raw,
+                                  int16_t ambient_old_raw, double Ka);
+  double calcObjectIteration(double prev_object_temp, double object, double TAdut,
+                            double Ga, double Fa, double Fb, double Ha, double Hb);
+  double calcObjectIterationExtended(double prev_object_temp, double object, double TAdut,
+                                    double TaTr4, double Ga, double Fa, double Fb,
+                                    double Ha, double Hb);
+  double calcObjectTemperatureMedical(int16_t object_new_raw, int16_t object_old_raw,
+                                     int16_t ambient_new_raw, int16_t ambient_old_raw,
+                                     double Ka, double Gb, double Ea, double Eb,
+                                     double Ga, double Fa, double Fb, double Ha, double Hb);
+  double calcObjectTemperatureExtended(int16_t object_new_raw, int16_t object_old_raw,
+                                      int16_t ambient_new_raw, int16_t ambient_old_raw,
+                                      double Ka, double Gb, double Ea, double Eb,
+                                      double Ga, double Fa_half, double Fb, double Ha, double Hb);
 
   // Calibration constants
   double P_R; ///< P_R calibration constant
@@ -255,30 +277,6 @@ class Adafruit_MLX90632 {
   int16_t Kb; ///< Kb calibration constant (16-bit signed)
   double Ha;  ///< Ha calibration constant
   double Hb;  ///< Hb calibration constant
-
-  // Temperature calculation variables
-  double P_R;
-  double P_G;
-  double P_T;
-  double P_O;
-  double Aa;
-  double Ab;
-  double Ba;
-  double Bb;
-  double Ca;
-  double Cb;
-  double Da;
-  double Db;
-  double Ea;
-  double Eb;
-  double Fa;
-  double Fb;
-  double Ga;
-  double Gb;
-  double Ka;
-  int16_t Kb;
-  double Ha;
-  double Hb;
   double TO0; ///< Previous object temperature (starts at 25.0)
   double TA0; ///< Previous ambient temperature (starts at 25.0)
 };
