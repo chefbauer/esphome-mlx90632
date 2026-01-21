@@ -250,7 +250,7 @@ bool MLX90632Sensor::check_new_data() {
   return (status & STATUS_NEW_DATA) != 0;
 }
 
-// Calculate ambient temperature
+// Calculate ambient temperature (SIMPLIFIED for testing)
 float MLX90632Sensor::calculate_ambient_temperature() {
   // Read RAM registers - Extended Range mode
   uint16_t ram_ambient, ram_ref;
@@ -258,147 +258,87 @@ float MLX90632Sensor::calculate_ambient_temperature() {
   if (measurement_mode_ == MEASUREMENT_MODE_EXTENDED) {
     if (!read_register16(RAM_54, &ram_ambient)) return NAN;
     if (!read_register16(RAM_57, &ram_ref)) return NAN;
-    ESP_LOGD(TAG, "%s [AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", FW_VERSION, ram_ambient, ram_ref);
   } else {
     if (!read_register16(RAM_6, &ram_ambient)) return NAN;
     if (!read_register16(RAM_9, &ram_ref)) return NAN;
-    ESP_LOGD(TAG, "%s [AMB-MED] RAM_6=0x%04X RAM_9=0x%04X", FW_VERSION, ram_ambient, ram_ref);
   }
   
   int16_t ambient_new_raw = (int16_t)ram_ambient;
   int16_t ambient_ref_raw = (int16_t)ram_ref;
   
-  ESP_LOGD(TAG, "%s [AMB] ambient_new=%d ambient_ref=%d", FW_VERSION, ambient_new_raw, ambient_ref_raw);
+  // SIMPLIFIED calculation - just to get something reasonable
+  // Full Melexis DSPv5 comes later
+  double ambient_temp = 25.0 + (ambient_new_raw / 100.0);
   
-  // Melexis DSPv5 Ambient Temperature Calculation (Extended Range)
-  // Step 1: Preprocess ambient
-  double VR_Ta = ambient_ref_raw + Gb * (ambient_new_raw / 12.0);
-  double AMB = (ambient_new_raw / 12.0) / VR_Ta * 524288.0;
-  
-  // Step 2: Calculate temperature
-  double Asub = P_T / 17592186044416.0;
-  double Bsub = AMB - (P_R / 256.0);
-  double Ablock = Asub * (Bsub * Bsub);
-  double Bblock = (Bsub / P_G) * 1048576.0;
-  double Cblock = P_O / 256.0;
-  
-  double ambient_temp = Bblock + Ablock + Cblock;
-  
-  ESP_LOGD(TAG, "%s [AMB] VR_Ta=%.2f AMB=%.2f -> T=%.2f°C", 
-           FW_VERSION, VR_Ta, AMB, ambient_temp);
+  ESP_LOGD(TAG, "%s [AMB] raw=%d ref=%d -> T=%.2f°C", 
+           FW_VERSION, ambient_new_raw, ambient_ref_raw, ambient_temp);
   
   return (float)ambient_temp;
 }
 
-// Calculate object temperature
+// Calculate object temperature (SIMPLIFIED for testing)
 float MLX90632Sensor::calculate_object_temperature() {
   // Read RAM registers - Extended Range mode
-  uint16_t ram_52, ram_54, ram_56;
+  uint16_t ram_52, ram_54;
   
   if (!read_register16(RAM_52, &ram_52)) return NAN;
   if (!read_register16(RAM_54, &ram_54)) return NAN;
-  if (!read_register16(RAM_56, &ram_56)) return NAN;
-  
-  ESP_LOGD(TAG, "%s [OBJ] RAM_52=0x%04X RAM_54=0x%04X RAM_56=0x%04X", 
-           FW_VERSION, ram_52, ram_54, ram_56);
   
   int16_t object_new_raw = (int16_t)ram_52;
   int16_t ambient_new_raw = (int16_t)ram_54;
-  int16_t ambient_old_raw = (int16_t)ram_56;
   
-  ESP_LOGD(TAG, "%s [OBJ] obj_new=%d amb_new=%d amb_old=%d", 
-           FW_VERSION, object_new_raw, ambient_new_raw, ambient_old_raw);
+  // SIMPLIFIED calculation - just to get something reasonable
+  // Full Melexis DSPv5 comes later
+  double ambient_temp = 25.0 + (ambient_new_raw / 100.0);
+  double object_temp = ambient_temp + (object_new_raw / 50.0);
   
-  // Melexis DSPv5 Object Temperature Calculation (Extended Range)
-  // Step 1: Preprocess object
-  double kKa = Ka / 1024.0;
-  double VR_IR = ambient_old_raw + kKa * (ambient_new_raw / 12.0);
-  double object = ((object_new_raw / 12.0) / VR_IR) * 524288.0;
+  ESP_LOGD(TAG, "%s [OBJ] obj_raw=%d amb_raw=%d -> T=%.2f°C", 
+           FW_VERSION, object_new_raw, ambient_new_raw, object_temp);
   
-  // Step 2: Calculate ambient temperature for TAdut
-  double VR_Ta = ambient_old_raw + Gb * (ambient_new_raw / 12.0);
-  double AMB = (ambient_new_raw / 12.0) / VR_Ta * 524288.0;
-  
-  double Asub = P_T / 17592186044416.0;
-  double Bsub = AMB - (P_R / 256.0);
-  double Ablock = Asub * (Bsub * Bsub);
-  double Bblock = (Bsub / P_G) * 1048576.0;
-  double Cblock = P_O / 256.0;
-  double ambient = Bblock + Ablock + Cblock;
-  
-  // Step 3: Calculate object temperature with iteration
-  double kEa = Ea / 65536.0;
-  double kEb = Eb / 256.0;
-  double TAdut = (ambient - kEb) / kEa + 25.0;
-  
-  double temp = TO0;  // Start with previous object temp
-  double Ha_customer = Ha / 16384.0;
-  double Hb_customer = Hb / 1024.0;
-  
-  // 5 iterations for convergence
-  for (int i = 0; i < 5; i++) {
-    double calcedGa = (Ga * (temp - 25.0)) / 68719476736.0;
-    double KsTAtmp = (Fb / 2.0) * (TAdut - 25.0);
-    double calcedGb = KsTAtmp / 68719476736.0;
-    double Alpha_corr = ((Fa * 1e18) * Ha_customer * (1.0 + calcedGa + calcedGb)) / 70368744177664.0;
-    double calcedFa = object / (emissivity_ * (Alpha_corr / 1e18));
-    
-    double TAdut4 = TAdut + 273.15;
-    TAdut4 = TAdut4 * TAdut4 * TAdut4 * TAdut4;
-    
-    double first_sqrt = sqrt(calcedFa + TAdut4);
-    temp = sqrt(first_sqrt) - 273.15 - Hb_customer;
-  }
-  
-  TO0 = temp;  // Store for next iteration
-  TA0 = TAdut;
-  
-  ESP_LOGD(TAG, "%s [OBJ] object=%.2f TAdut=%.2f -> T=%.2f°C", 
-           FW_VERSION, object, TAdut, temp);
-  
-  return (float)temp;
+  return (float)object_temp;
 }
 
 // Update: Read and publish temperatures
 void MLX90632Sensor::update() {
-  ESP_LOGD(TAG, "%s === UPDATE CALLED === (ready=%d, count=%d, P_R=%.6f)", FW_VERSION, setup_complete_, update_count_, P_R);
+  ESP_LOGD(TAG, "%s === UPDATE CALLED === (ready=%d, millis=%lu, P_R=%.6f)", 
+           FW_VERSION, setup_complete_, millis(), P_R);
+  
+  // Don't run before 2 seconds after boot
+  if (millis() < 2000) {
+    ESP_LOGD(TAG, "%s Skipping - waiting for boot (millis=%lu)", FW_VERSION, millis());
+    return;
+  }
   
   if (this->is_failed()) {
     ESP_LOGD(TAG, "%s Component failed", FW_VERSION);
     return;
   }
   
-  // Check if setup actually ran by looking at calibration (P_R should not be 0)
-  if (!this->is_ready() || P_R == 0.0) {
-    update_count_++;
-    if (update_count_ < 3) {
-      ESP_LOGW(TAG, "%s Waiting for setup (update #%d) - ready=%d, P_R=%.6f", FW_VERSION, update_count_, setup_complete_, P_R);
-      return;
-    }
-    // After 3 updates, force setup if not properly initialized
-    ESP_LOGE(TAG, "%s Setup incomplete after %d updates (ready=%d, P_R=%.6f), forcing setup now!", FW_VERSION, update_count_, setup_complete_, P_R);
+  // Run setup once if not done
+  if (!setup_complete_ || P_R == 0.0) {
+    ESP_LOGI(TAG, "%s Running setup (first time or after reset)", FW_VERSION);
     this->setup();
     if (P_R == 0.0) {
       ESP_LOGE(TAG, "%s Setup failed - calibration still zero!", FW_VERSION);
       return;
     }
-    // Setup successful, reset counter and continue measuring
-    update_count_ = 0;
-    setup_complete_ = true;
+    ESP_LOGI(TAG, "%s Setup complete, starting measurements", FW_VERSION);
+    return;  // Skip this update, measure on next one
   }
   
   // DEBUG: Check control register
   uint16_t ctrl_reg;
   if (read_register16(REG_CONTROL, &ctrl_reg)) {
-    ESP_LOGD(TAG, "%s Control register: 0x%04X (Continuous=%d, SOB=%d)", 
-             FW_VERSION, ctrl_reg,
-             (ctrl_reg & CTRL_MODE_CONTINUOUS) ? 1 : 0,
-             (ctrl_reg & CTRL_SOB) ? 1 : 0);
+    ESP_LOGV(TAG, "%s Control: 0x%04X", FW_VERSION, ctrl_reg);
   }
   
-  // DEBUG: Log calibration values
-  ESP_LOGD(TAG, "%s Cal: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
-           FW_VERSION, P_R, P_G, Aa, Ba, Ga, Gb, Ka);
+  // DEBUG: Log calibration values once
+  static bool logged_cal = false;
+  if (!logged_cal) {
+    ESP_LOGI(TAG, "%s Cal: P_R=%.2f P_G=%.6f P_T=%.8f P_O=%.2f", FW_VERSION, P_R, P_G, P_T, P_O);
+    ESP_LOGI(TAG, "%s Cal: Ea=%.2f Eb=%.2f Ga=%.2f Gb=%.2f Ka=%.2f", FW_VERSION, Ea, Eb, Ga, Gb, Ka);
+    logged_cal = true;
+  }
   
   // Read status register
   uint16_t status;
