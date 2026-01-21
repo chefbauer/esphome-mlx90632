@@ -324,7 +324,7 @@ void MLX90632Sensor::update() {
   ESP_LOGD(TAG, "%s Starting measurement cycle...", FW_VERSION);
   
   // Trigger new measurement burst
-  uint16_t control = CONTROL_MODE_CONTINUOUS | CONTROL_START_BURST;
+  uint16_t control = CTRL_MODE_CONTINUOUS | CTRL_SOB;
   if (!write_register16(REG_CONTROL, control)) {
     ESP_LOGE(TAG, "%s Failed to trigger SOB!", FW_VERSION);
     return;
