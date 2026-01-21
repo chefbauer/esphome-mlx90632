@@ -6,13 +6,14 @@
 /**
  * @brief ESPHome I2C Adapter for Adafruit libraries
  * 
- * This adapter implements a standard I2C interface using ESPHome's I2C bus,
+ * This adapter implements a standard I2C interface using ESPHome's I2CDevice,
  * allowing Adafruit libraries (like MLX90632) to work seamlessly with ESPHome
  * without requiring Wire.h or TwoWire.
  */
 class ESPHomeI2CAdapter : public I2CInterface {
  public:
-  ESPHomeI2CAdapter(esphome::i2c::I2CBus *bus) : bus_(bus) {}
+  ESPHomeI2CAdapter(esphome::i2c::I2CDevice *device, uint8_t address) 
+      : device_(device), i2c_addr_(address) {}
 
   // I2CInterface methods
   void beginTransmission(uint8_t address) override;
@@ -24,10 +25,13 @@ class ESPHomeI2CAdapter : public I2CInterface {
   int available(void) override;
 
  private:
-  esphome::i2c::I2CBus *bus_;
-  uint8_t tx_addr_{0};
+  esphome::i2c::I2CDevice *device_;
+  uint8_t i2c_addr_;
   uint8_t tx_buf_[255]{};  // I2C max write size
   uint8_t tx_len_{0};
+  uint8_t rx_buf_[255]{};
+  uint8_t rx_len_{0};
+  uint8_t rx_pos_{0};
   uint8_t rx_buf_[255]{};  // I2C max read size
   uint8_t rx_len_{0};
   uint8_t rx_pos_{0};

@@ -4,24 +4,21 @@
 static const char *TAG = "mlx90632.i2c_adapter";
 
 void ESPHomeI2CAdapter::beginTransmission(uint8_t address) {
-  tx_addr_ = address;
   tx_len_ = 0;
 }
 
 uint8_t ESPHomeI2CAdapter::endTransmission(uint8_t sendStop) {
-  if (!bus_) {
+  if (!device_) {
     return 1;  // Error
   }
   
-  // Use ESPHome's write method with correct API
-  auto err = bus_->write(tx_addr_, tx_buf_, tx_len_);
-  tx_len_ = 0;
-  
-  if (err == esphome::i2c::ERROR_OK) {
+  // Use I2CDevice's write_bytes method
+  if (device_->write_bytes(i2c_addr_, tx_buf_, tx_len_)) {
+    tx_len_ = 0;
     return 0;  // Success
   }
   
-  ESP_LOGW(TAG, "I2C write failed: %d", err);
+  ESP_LOGW(TAG, "I2C write failed for address 0x%02X", i2c_addr_);
   return 1;  // Error
 }
 
@@ -47,7 +44,7 @@ size_t ESPHomeI2CAdapter::write(const uint8_t *data, size_t quantity) {
 }
 
 uint8_t ESPHomeI2CAdapter::requestFrom(uint8_t addr, uint8_t quantity) {
-  if (!bus_) {
+  if (!device_) {
     return 0;
   }
   
@@ -55,16 +52,14 @@ uint8_t ESPHomeI2CAdapter::requestFrom(uint8_t addr, uint8_t quantity) {
     quantity = sizeof(rx_buf_);
   }
   
-  // Use ESPHome's read method with correct API
-  auto err = bus_->read(addr, rx_buf_, quantity);
-  
-  if (err == esphome::i2c::ERROR_OK) {
+  // Use I2CDevice's read_bytes method
+  if (device_->read_bytes(i2c_addr_, rx_buf_, quantity)) {
     rx_len_ = quantity;
     rx_pos_ = 0;
     return quantity;
   }
   
-  ESP_LOGW(TAG, "I2C read failed: %d", err);
+  ESP_LOGW(TAG, "I2C read failed for address 0x%02X", i2c_addr_);
   return 0;
 }
 
@@ -73,6 +68,10 @@ int ESPHomeI2CAdapter::read(void) {
     return rx_buf_[rx_pos_++];
   }
   return -1;
+}
+
+int ESPHomeI2CAdapter::available(void) {
+  return rx_len_ - rx_pos_;
 }
 
 int ESPHomeI2CAdapter::available(void) {
