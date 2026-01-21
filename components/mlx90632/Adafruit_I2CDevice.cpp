@@ -151,14 +151,39 @@ bool Adafruit_I2CDevice::read_then_write(const uint8_t *write_buffer,
                                           size_t write_len,
                                           uint8_t *read_buffer,
                                           size_t read_len, bool stop) {
-  if (!write(write_buffer, write_len, stop)) {
+  if (!_wire || !write_buffer || !read_buffer || write_len == 0 || read_len == 0) {
     return false;
   }
 
-  // Small delay to allow sensor to prepare response
-  delay(1);
-
-  return read(read_buffer, read_len, stop);
+  I2CInterface* wire = (I2CInterface*)_wire;
+  
+  // Write register address then read data (combined I2C transaction)
+  wire->beginTransmission(_addr);
+  
+  // Write register address
+  if (wire->write(write_buffer, write_len) != write_len) {
+    wire->endTransmission();
+    return false;
+  }
+  
+  // End transmission but don't send STOP (repeated START)
+  wire->endTransmission(false);
+  
+  // Request and read data
+  uint8_t received = wire->requestFrom(_addr, read_len);
+  if (received != read_len) {
+    return false;
+  }
+  
+  for (size_t i = 0; i < read_len; i++) {
+    if (wire->available() > 0) {
+      read_buffer[i] = wire->read();
+    } else {
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 /*!
