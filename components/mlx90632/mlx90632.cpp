@@ -111,7 +111,7 @@ void MLX90632Sensor::setup() {
   
   setup_complete_ = true;
   setup_time_ = millis();
-  ESP_LOGI(TAG, "%s === Setup complete at %.3fs ===\", FW_VERSION, setup_time_ / 1000.0);
+  ESP_LOGI(TAG, "%s === Setup complete at %.3fs ===", FW_VERSION, setup_time_ / 1000.0);
 }
 
 // Read calibration constants from EEPROM
