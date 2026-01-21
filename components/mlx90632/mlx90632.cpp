@@ -1,12 +1,8 @@
 #include "mlx90632.h"
 #include "esphome/core/log.h"
 
-
 namespace esphome {
 namespace mlx90632 {
-
-static const char *const TAG = "mlx90632";
-#define FW_VERSION "V.N1"
 
 using namespace mlx90632_registers;
 
