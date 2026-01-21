@@ -80,69 +80,36 @@ void MLX90632Component::setup() {
 }
 
 void MLX90632Component::update() {
-  static bool raw_eeprom_logged = false;
-  
   ESP_LOGD(TAG, "=== UPDATE CALLED ===");
   if (this->is_failed()) {
     ESP_LOGD(TAG, "Component is failed, returning");
     return;
   }
   
-  // Log raw EEPROM values once to diagnose calibration issue
-  if (!raw_eeprom_logged) {
-    // Read raw EEPROM registers using I2C write_read (16-bit addresses, big-endian)
-    uint16_t p_r_lsw = 0, p_r_msw = 0;
-    uint16_t p_g_lsw = 0, p_g_msw = 0;
-    uint16_t aa_lsw = 0, aa_msw = 0;
-    uint16_t ba_lsw = 0, ba_msw = 0;
-    uint16_t ga_lsw = 0, ga_msw = 0;
-    uint16_t gb = 0, ka = 0;
-    
-    // Helper lambda to read 16-bit register with 16-bit address
-    auto read_reg = [this](uint16_t addr, uint16_t *value) {
-      uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
-      uint8_t data_buf[2] = {0};
-      if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
-        *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
-        return true;
-      }
-      return false;
-    };
-    
-    // P_R at 0x243D (LSW) and 0x243E (MSW)
-    read_reg(0x243D, &p_r_lsw);
-    read_reg(0x243E, &p_r_msw);
-    // P_G at 0x243F (LSW) and 0x2440 (MSW)
-    read_reg(0x243F, &p_g_lsw);
-    read_reg(0x2440, &p_g_msw);
-    // Aa at 0x2441 (LSW) and 0x2442 (MSW)
-    read_reg(0x2441, &aa_lsw);
-    read_reg(0x2442, &aa_msw);
-    // Ba at 0x2443 (LSW) and 0x2444 (MSW)
-    read_reg(0x2443, &ba_lsw);
-    read_reg(0x2444, &ba_msw);
-    // Ga at 0x2453 (LSW) and 0x2454 (MSW)
-    read_reg(0x2453, &ga_lsw);
-    read_reg(0x2454, &ga_msw);
-    // Gb at 0x2455
-    read_reg(0x2455, &gb);
-    // Ka at 0x2456
-    read_reg(0x2456, &ka);
-    
-    uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
-    uint32_t ee_p_g = ((uint32_t)p_g_msw << 16) | p_g_lsw;
-    uint32_t ee_aa = ((uint32_t)aa_msw << 16) | aa_lsw;
-    uint32_t ee_ba = ((uint32_t)ba_msw << 16) | ba_lsw;
-    uint32_t ee_ga = ((uint32_t)ga_msw << 16) | ga_lsw;
-    
-    ESP_LOGD(TAG, "[RAW-EEPROM] P_R: LSW=0x%04X MSW=0x%04X -> 0x%08X", p_r_lsw, p_r_msw, ee_p_r);
-    ESP_LOGD(TAG, "[RAW-EEPROM] P_G: LSW=0x%04X MSW=0x%04X -> 0x%08X", p_g_lsw, p_g_msw, ee_p_g);
-    ESP_LOGD(TAG, "[RAW-EEPROM] Aa: LSW=0x%04X MSW=0x%04X -> 0x%08X", aa_lsw, aa_msw, ee_aa);
-    ESP_LOGD(TAG, "[RAW-EEPROM] Ba: LSW=0x%04X MSW=0x%04X -> 0x%08X", ba_lsw, ba_msw, ee_ba);
-    ESP_LOGD(TAG, "[RAW-EEPROM] Ga: LSW=0x%04X MSW=0x%04X -> 0x%08X", ga_lsw, ga_msw, ee_ga);
-    ESP_LOGD(TAG, "[RAW-EEPROM] Gb=0x%04X Ka=0x%04X", gb, ka);
-    raw_eeprom_logged = true;
-  }
+  // Helper lambda to read 16-bit register with 16-bit address
+  auto read_reg = [this](uint16_t addr, uint16_t *value) {
+    uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
+    uint8_t data_buf[2] = {0};
+    if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
+      *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
+      return true;
+    }
+    return false;
+  };
+  
+  // Read raw EEPROM values to diagnose calibration issue
+  uint16_t p_r_lsw = 0, p_r_msw = 0;
+  uint16_t gb = 0, ka = 0;
+  
+  read_reg(0x243D, &p_r_lsw);  // P_R LSW
+  read_reg(0x243E, &p_r_msw);  // P_R MSW
+  read_reg(0x2455, &gb);       // Gb
+  read_reg(0x2456, &ka);       // Ka
+  
+  uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
+  
+  ESP_LOGD(TAG, "[RAW-EEPROM] P_R: LSW=0x%04X MSW=0x%04X -> 0x%08X | Gb=0x%04X Ka=0x%04X", 
+           p_r_lsw, p_r_msw, ee_p_r, gb, ka);
   
   // Log calibration data at every update
   ESP_LOGD(TAG, "Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
