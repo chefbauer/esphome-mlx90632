@@ -76,16 +76,54 @@ void MLX90632Sensor::setup() {
   // Read current control register
   uint16_t ctrl_before;
   if (read_register16(REG_CONTROL, &ctrl_before)) {
-    ESP_LOGD(TAG, "%s Control register before: 0x%04X", FW_VERSION, ctrl_before);
+    ESP_LOGI(TAG, "%s Control before: 0x%04X", FW_VERSION, ctrl_before);
   }
   
-  // Wake sensor and set continuous measurement mode with SOB
-  uint16_t ctrl_value = CTRL_MODE_CONTINUOUS | CTRL_SOB;
-  if (!write_register16(REG_CONTROL, ctrl_value)) {
-    ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
+  // Switch from Medical to Extended range (must follow datasheet sequence!)
+  // 1. Send addressed reset (write 0x0006 to 0x3005)
+  if (!write_register16(0x3005, 0x0006)) {
+    ESP_LOGE(TAG, "%s Failed to send reset", FW_VERSION);
     this->mark_failed();
     return;
   }
+  delay(200);  // Wait for reset to complete
+  
+  // 2. Read current control
+  uint16_t ctrl_current;
+  if (!read_register16(REG_CONTROL, &ctrl_current)) {
+    ESP_LOGE(TAG, "%s Failed to read control after reset", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  ESP_LOGD(TAG, "%s Control after reset: 0x%04X", FW_VERSION, ctrl_current);
+  
+  // 3. Set HALT mode (00) + Extended range (0x11)
+  // meas_select[4:0]=0x11 in bits 8:4 = 0x110, mode[1:0]=00 = 0x000
+  uint16_t ctrl_halt_extended = 0x0110;  // Extended + HALT
+  if (!write_register16(REG_CONTROL, ctrl_halt_extended)) {
+    ESP_LOGE(TAG, "%s Failed to set HALT+Extended", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  delay(10);
+  
+  // 4. Read back to verify
+  if (!read_register16(REG_CONTROL, &ctrl_current)) {
+    ESP_LOGE(TAG, "%s Failed to read control", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  ESP_LOGD(TAG, "%s Control HALT+Extended: 0x%04X", FW_VERSION, ctrl_current);
+  
+  // 5. Set Continuous mode (11) while keeping Extended (0x11)
+  // meas_select[4:0]=0x11 in bits 8:4 = 0x110, mode[1:0]=11 = 0x003
+  uint16_t ctrl_value = 0x0113;  // Extended + Continuous
+  if (!write_register16(REG_CONTROL, ctrl_value)) {
+    ESP_LOGE(TAG, "%s Failed to set Extended Continuous", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  ESP_LOGI(TAG, "%s Control set to 0x%04X (Extended Continuous)", FW_VERSION, ctrl_value);
   
   // Verify control register was set (give sensor time to wake up)
   this->set_timeout(100, [this]() {
