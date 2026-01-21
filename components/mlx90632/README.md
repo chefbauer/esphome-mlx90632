@@ -57,9 +57,9 @@ sensor:
   - platform: mlx90632
     name: MLX90632 Temperature Sensor
     update_interval: 30s
-    address: 0x3A                    # Optional, default is 0x3A
-    measurement_select: medical      # Optional, default is 'medical'
-    refresh_rate: 2hz                # Optional, default is '2hz' (500ms per measurement)
+    address: 0x3A                    # Optional (default: 0x3A)
+    measurement_select: medical      # Optional: medical | extended_range
+    refresh_rate: 2hz                # Optional: 0.5hz | 1hz | 2hz | 4hz | 8hz | 16hz | 32hz | 64hz
     
     object_temperature:
       name: "Object Temperature"
