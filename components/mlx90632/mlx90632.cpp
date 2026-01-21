@@ -80,46 +80,10 @@ void MLX90632Component::setup() {
 }
 
 void MLX90632Component::update() {
-  static bool raw_values_logged = false;
-  
   ESP_LOGD(TAG, "=== UPDATE CALLED ===");
   if (this->is_failed()) {
     ESP_LOGD(TAG, "Component is failed, returning");
     return;
-  }
-  
-  // Log raw EEPROM values once for debugging
-  if (!raw_values_logged) {
-    // Read some raw EEPROM registers to check byte order
-    uint8_t ee_version;
-    this->read_byte(0x240F, &ee_version);
-    
-    uint16_t p_r_lsw, p_r_msw, p_g_lsw, p_g_msw;
-    uint16_t aa_lsw, aa_msw, ba_lsw, ba_msw, ga_lsw, ga_msw;
-    uint16_t gb_val, ka_val;
-    
-    this->read_byte_16(0x243D, &p_r_lsw);  // P_R LSW
-    this->read_byte_16(0x243E, &p_r_msw);  // P_R MSW
-    this->read_byte_16(0x243F, &p_g_lsw);  // P_G LSW  
-    this->read_byte_16(0x2440, &p_g_msw);  // P_G MSW
-    this->read_byte_16(0x2441, &aa_lsw);   // Aa LSW
-    this->read_byte_16(0x2442, &aa_msw);   // Aa MSW
-    this->read_byte_16(0x2443, &ba_lsw);   // Ba LSW
-    this->read_byte_16(0x2444, &ba_msw);   // Ba MSW
-    this->read_byte_16(0x2453, &ga_lsw);   // Ga LSW
-    this->read_byte_16(0x2454, &ga_msw);   // Ga MSW
-    this->read_byte_16(0x2455, &gb_val);   // Gb (16-bit)
-    this->read_byte_16(0x2456, &ka_val);   // Ka (16-bit)
-    
-    uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
-    uint32_t ee_p_g = ((uint32_t)p_g_msw << 16) | p_g_lsw;
-    uint32_t ee_aa = ((uint32_t)aa_msw << 16) | aa_lsw;
-    uint32_t ee_ba = ((uint32_t)ba_msw << 16) | ba_lsw;
-    uint32_t ee_ga = ((uint32_t)ga_msw << 16) | ga_lsw;
-    
-    ESP_LOGD(TAG, "[RAW-EEPROM] P_R=0x%08X P_G=0x%08X Aa=0x%08X Ba=0x%08X Ga=0x%08X Gb=0x%04X Ka=0x%04X",
-             ee_p_r, ee_p_g, ee_aa, ee_ba, ee_ga, gb_val, ka_val);
-    raw_values_logged = true;
   }
   
   // Log calibration data at every update
