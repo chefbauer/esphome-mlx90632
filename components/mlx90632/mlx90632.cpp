@@ -11,7 +11,7 @@ static const char *const TAG = "mlx90632";
 using namespace mlx90632_registers;
 
 // I2C Helper: Read 16-bit register (big-endian)
-bool MLX90632Component::read_register16(uint16_t reg, uint16_t *value) {
+bool MLX90632Sensor::read_register16(uint16_t reg, uint16_t *value) {
   uint8_t addr_buf[2] = {(uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF)};
   uint8_t data_buf[2] = {0};
   
@@ -25,7 +25,7 @@ bool MLX90632Component::read_register16(uint16_t reg, uint16_t *value) {
 }
 
 // I2C Helper: Read 32-bit register (two 16-bit registers: LSW, MSW)
-bool MLX90632Component::read_register32(uint16_t lsw_reg, uint32_t *value) {
+bool MLX90632Sensor::read_register32(uint16_t lsw_reg, uint32_t *value) {
   uint16_t lsw = 0, msw = 0;
   
   if (!read_register16(lsw_reg, &lsw)) return false;
@@ -38,7 +38,7 @@ bool MLX90632Component::read_register32(uint16_t lsw_reg, uint32_t *value) {
 }
 
 // I2C Helper: Write 16-bit register (big-endian)
-bool MLX90632Component::write_register16(uint16_t reg, uint16_t value) {
+bool MLX90632Sensor::write_register16(uint16_t reg, uint16_t value) {
   uint8_t buf[4] = {
     (uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF),
     (uint8_t)(value >> 8), (uint8_t)(value & 0xFF)
@@ -52,7 +52,7 @@ bool MLX90632Component::write_register16(uint16_t reg, uint16_t value) {
 }
 
 // Setup: Initialize sensor
-void MLX90632Component::setup() {
+void MLX90632Sensor::setup() {
   ESP_LOGI(TAG, "%s Setting up MLX90632...", FW_VERSION);
   
   // Read product ID
@@ -115,7 +115,7 @@ void MLX90632Component::setup() {
 }
 
 // Read calibration constants from EEPROM
-bool MLX90632Component::read_calibration() {
+bool MLX90632Sensor::read_calibration() {
   ESP_LOGD(TAG, "%s Reading calibration from EEPROM...", FW_VERSION);
   
   // Read 32-bit constants
@@ -200,7 +200,7 @@ bool MLX90632Component::read_calibration() {
 }
 
 // Check if new measurement data is available
-bool MLX90632Component::check_new_data() {
+bool MLX90632Sensor::check_new_data() {
   uint16_t status;
   if (!read_register16(REG_STATUS, &status)) return false;
   
@@ -215,7 +215,7 @@ bool MLX90632Component::check_new_data() {
 }
 
 // Calculate ambient temperature
-float MLX90632Component::calculate_ambient_temperature() {
+float MLX90632Sensor::calculate_ambient_temperature() {
   // Read RAM registers
   uint16_t ram_ambient, ram_ref;
   
@@ -248,7 +248,7 @@ float MLX90632Component::calculate_ambient_temperature() {
 }
 
 // Calculate object temperature
-float MLX90632Component::calculate_object_temperature() {
+float MLX90632Sensor::calculate_object_temperature() {
   // Read RAM registers
   uint16_t ram_52, ram_53, ram_54, ram_56;
   
@@ -360,24 +360,18 @@ void MLX90632Component::update() {
   float ambient_temp = calculate_ambient_temperature();
   float object_temp = calculate_object_temperature();
   
-  ESP_LOGD(TAG, "%s Ambient: %.2f°C, Object: %.2f°C", FW_VERSION, ambient_temp, object_temp);
+  ESP_LOGI(TAG, "%s Ambient: %.2f°C, Object: %.2f°C", FW_VERSION, ambient_temp, object_temp);
   
-  // Publish to sensors
-  if (ambient_temperature_sensor_ != nullptr) {
-    ambient_temperature_sensor_->publish_state(ambient_temp);
-  }
-  if (object_temperature_sensor_ != nullptr) {
-    object_temperature_sensor_->publish_state(object_temp);
-  }
+  // Publish object temperature to sensor
+  this->publish_state(object_temp);
 }
 
 // Dump config
-void MLX90632Component::dump_config() {
+void MLX90632Sensor::dump_config() {
   ESP_LOGCONFIG(TAG, "MLX90632:");
   LOG_I2C_DEVICE(this);
   LOG_UPDATE_INTERVAL(this);
-  LOG_SENSOR("  ", "Ambient Temperature", ambient_temperature_sensor_);
-  LOG_SENSOR("  ", "Object Temperature", object_temperature_sensor_);
+  LOG_SENSOR("  ", "Object Temperature", this);
 }
 
 }  // namespace mlx90632
