@@ -90,7 +90,7 @@ void MLX90632Component::setup() {
   }
   
   // Verify control register was set
-  delay(100);  // Give sensor time to wake up
+  delayMicroseconds(100000);  // Give sensor time to wake up (100ms)
   uint16_t ctrl_after;
   if (read_register16(REG_CONTROL, &ctrl_after)) {
     ESP_LOGD(TAG, "%s Control register after: 0x%04X (expected 0x%04X)", 
