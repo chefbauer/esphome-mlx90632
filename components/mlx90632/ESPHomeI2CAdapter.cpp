@@ -79,7 +79,3 @@ int ESPHomeI2CAdapter::available(void) {
 
 }  // namespace mlx90632
 }  // namespace esphome
-
-int ESPHomeI2CAdapter::available(void) {
-  return (int)(rx_len_ - rx_pos_);
-}
