@@ -23,8 +23,8 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   bool read_register16(uint16_t reg, uint16_t *value);
   bool write_register16(uint16_t reg, uint16_t value);
   
-  // Temperature calculation (simplified for medical mode)
-  float calculate_temperature(uint16_t raw);
+  // Temperature calculation (Melexis DSPv5 algorithm)
+  float calculate_temperature(uint16_t raw_obj, uint16_t raw_amb);
 };
 
 }  // namespace mlx90632
