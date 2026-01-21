@@ -62,10 +62,9 @@ uint32_t Adafruit_BusIO_Register::read() {
     return 0;
   }
 
-  // Log raw bytes
-  if (_width == 2) {
-    ESP_LOGD(TAG, "Reg 0x%04X: [0x%02X 0x%02X]", _address, buffer[0], buffer[1]);
-  }
+  // Log raw bytes for ALL reads
+  ESP_LOGD(TAG, "Reg 0x%04X (width=%d): [0x%02X 0x%02X 0x%02X 0x%02X]", 
+           _address, _width, buffer[0], buffer[1], buffer[2], buffer[3]);
 
   // Convert bytes to 32-bit value based on byte order
   uint32_t value = 0;
