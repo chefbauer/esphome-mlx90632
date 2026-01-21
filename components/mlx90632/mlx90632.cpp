@@ -291,11 +291,35 @@ void MLX90632Component::update() {
     return;
   }
   
-  // DEBUG: Log calibration values (only in update, not setup)
-  ESP_LOGD(TAG, "%s Cal RAW 32-bit: P_R=0x%08X P_G=0x%08X P_O=0x%08X",
-           FW_VERSION, (uint32_t)(P_R * 256), (uint32_t)(P_G * 1048576), (uint32_t)(P_O * 256));
-  ESP_LOGD(TAG, "%s Cal RAW 16-bit: Gb=0x%04X Ka=0x%04X",
-           FW_VERSION, (uint16_t)(Gb * 1024), (uint16_t)(Ka * 256));
+  // DEBUG: Check if calibration was loaded (if not, try again)
+  static bool cal_logged = false;
+  if (!cal_logged || P_R == 0.0) {
+    if (P_R == 0.0) {
+      ESP_LOGW(TAG, "%s Calibration not loaded, reading now...", FW_VERSION);
+      if (!read_calibration()) {
+        ESP_LOGE(TAG, "%s Failed to read calibration in update", FW_VERSION);
+        return;
+      }
+    }
+    cal_logged = true;
+  }
+  
+  // DEBUG: Check control register
+  uint16_t ctrl_reg;
+  if (read_register16(REG_CONTROL, &ctrl_reg)) {
+    ESP_LOGD(TAG, "%s Control register: 0x%04X (Continuous=%d, SOB=%d)", 
+             FW_VERSION, ctrl_reg,
+             (ctrl_reg & CTRL_MODE_CONTINUOUS) ? 1 : 0,
+             (ctrl_reg & CTRL_SOB) ? 1 : 0);
+    
+    // If not in continuous mode, set it
+    if ((ctrl_reg & CTRL_MODE_CONTINUOUS) == 0) {
+      ESP_LOGW(TAG, "%s Sensor not in continuous mode! Setting now...", FW_VERSION);
+      write_register16(REG_CONTROL, CTRL_MODE_CONTINUOUS | CTRL_SOB);
+    }
+  }
+  
+  // DEBUG: Log calibration values
   ESP_LOGD(TAG, "%s Cal: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
            FW_VERSION, P_R, P_G, Aa, Ba, Ga, Gb, Ka);
   

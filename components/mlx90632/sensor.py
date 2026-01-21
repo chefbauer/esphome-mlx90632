@@ -69,7 +69,6 @@ CONFIG_SCHEMA = cv.All(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await i2c.register_i2c_device(var, config)
 
     cg.add(var.set_measurement_mode(config[CONF_MEASUREMENT_SELECT]))
     cg.add(var.set_refresh_rate(config[CONF_REFRESH_RATE]))
@@ -82,3 +81,5 @@ async def to_code(config):
     if CONF_AMBIENT_TEMPERATURE in config:
         sens = await sensor.new_sensor(config[CONF_AMBIENT_TEMPERATURE])
         cg.add(var.set_ambient_temperature_sensor(sens))
+    
+    await i2c.register_i2c_device(var, config)
