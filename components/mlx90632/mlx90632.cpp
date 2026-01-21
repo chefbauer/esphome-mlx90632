@@ -365,6 +365,12 @@ void MLX90632Sensor::update() {
   float ambient_temp = calculate_ambient_temperature();
   float object_temp = calculate_object_temperature();
   
+  // Clear NewData flag so sensor can write new measurement!
+  uint16_t status_clear = status & ~STATUS_NEW_DATA;
+  if (!write_register16(REG_STATUS, status_clear)) {
+    ESP_LOGW(TAG, "%s Failed to clear NewData flag", FW_VERSION);
+  }
+  
   ESP_LOGI(TAG, "%s Ambient: %.2f°C, Object: %.2f°C", FW_VERSION, ambient_temp, object_temp);
   
   // Publish object temperature to sensor
