@@ -33,27 +33,17 @@ bool MLX90632Sensor::write_register16(uint16_t reg, uint16_t value) {
   return true;
 }
 
-// Calculate temperatures (simplified for now - MLX90632 uses complex DSPv5)
+// Calculate temperatures (direct raw value interpretation)
 float MLX90632Sensor::calculate_object_temperature(uint16_t raw_obj, uint16_t raw_amb) {
-  // For MLX90632, raw values are 16-bit signed integers representing temperature in 0.01°C units
-  // But the actual conversion is complex. For basic functionality:
-  
+  // For debugging: just interpret raw as signed 16-bit temperature in 0.01°C units
+  // This should give us a baseline to see if values make sense
   int16_t obj = (int16_t)raw_obj;
-  int16_t amb = (int16_t)raw_amb;
-  
-  // Simple conversion: values around 20000-25000 represent ~20-25°C
-  // MLX90632 raw values need calibration, but for basic reading:
-  float temp_obj = 25.0f + (obj - 22500) / 100.0f;
-  float temp_amb = 25.0f + (amb - 22500) / 100.0f;
-  
-  // For medical mode, object temp should be close to ambient
-  // Remove the clamping for now to see actual values
-  return temp_obj;
+  return obj / 100.0f;  // Convert to °C
 }
 
 float MLX90632Sensor::calculate_ambient_temperature(uint16_t raw_amb) {
   int16_t amb = (int16_t)raw_amb;
-  return 25.0f + (amb - 22500) / 100.0f;
+  return amb / 100.0f;  // Convert to °C
 }
 
 // Setup: Initialize sensor
@@ -69,34 +59,46 @@ void MLX90632Sensor::setup() {
   }
   ESP_LOGI(TAG, "%s I2C Address register: 0x%04X", FW_VERSION, addr_reg);
   
-  // Reset sensor to ensure clean state
-  ESP_LOGI(TAG, "%s Resetting sensor...", FW_VERSION);
-  if (!write_register16(0x3005, 0x0006)) {  // Addressed reset
-    ESP_LOGE(TAG, "%s Failed to reset sensor", FW_VERSION);
+  // Extended reset sequence for problematic sensors
+  ESP_LOGI(TAG, "%s Performing extended reset sequence...", FW_VERSION);
+  
+  // 1. Addressed reset
+  if (!write_register16(0x3005, 0x0006)) {
+    ESP_LOGE(TAG, "%s Failed to send addressed reset", FW_VERSION);
     this->mark_failed();
     return;
   }
-  delay(200);  // Wait for reset to complete
+  delay(1000);  // Longer delay for problematic sensors
   
-  // Set to HALT mode first
-  if (!write_register16(0x24D4, 0x0000)) {  // HALT mode
+  // 2. Check if sensor responds
+  uint16_t test_addr;
+  if (!read_register16(0x24D5, &test_addr)) {
+    ESP_LOGE(TAG, "%s Sensor not responding after reset", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  ESP_LOGI(TAG, "%s Sensor responding after reset: 0x%04X", FW_VERSION, test_addr);
+  
+  // 3. Set to HALT mode
+  if (!write_register16(0x24D4, 0x0000)) {
     ESP_LOGE(TAG, "%s Failed to set HALT mode", FW_VERSION);
     this->mark_failed();
     return;
   }
-  delay(10);
+  delay(100);
   
-  // Set to continuous mode for medical measurements
-  ESP_LOGI(TAG, "%s Setting continuous mode...", FW_VERSION);
-  if (!write_register16(0x24D4, 0x0003)) {  // EE_CONTROL: Medical Continuous mode
+  // 4. Set to continuous mode
+  if (!write_register16(0x24D4, 0x0003)) {
     ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
     this->mark_failed();
     return;
   }
   ESP_LOGI(TAG, "%s Set to medical continuous mode", FW_VERSION);
   
-  // Wait a bit for mode change
-  delay(100);
+  // 5. Wait for sensor to stabilize
+  delay(2000);
+  
+  ESP_LOGI(TAG, "%s Setup complete - sensor should be ready", FW_VERSION);
 }
 
 // Update: Read and publish temperature
@@ -152,6 +154,30 @@ void MLX90632Sensor::update() {
   
   float tobj_c = calculate_object_temperature(med6, med9);  // Use medical mode RAM_6 (obj) and RAM_9 (amb)
   float tamb_c = calculate_ambient_temperature(med9);       // Use medical mode RAM_9 (amb)
+  
+  // Auto-reset if ambient temperature indicates sensor failure (like MLX90614)
+  if (tamb_c < -250.0f) {
+    ESP_LOGW(TAG, "%s Sensor failure detected (Ambient=%.2f°C < -250°C) - resetting...", FW_VERSION, tamb_c);
+    
+    // Perform addressed reset
+    if (write_register16(0x3005, 0x0006)) {
+      delay(1000);  // Wait for reset
+      
+      // Re-initialize continuous mode
+      write_register16(0x24D4, 0x0000);  // HALT
+      delay(100);
+      write_register16(0x24D4, 0x0003);  // Continuous
+      delay(500);
+      
+      ESP_LOGI(TAG, "%s Sensor reset complete", FW_VERSION);
+    } else {
+      ESP_LOGE(TAG, "%s Failed to reset sensor", FW_VERSION);
+    }
+    
+    // Skip this measurement cycle
+    return;
+  }
+  
   ESP_LOGI(TAG, "%s Temperatures: Object=%.2f°C (0x%04X), Ambient=%.2f°C (0x%04X)", 
            FW_VERSION, tobj_c, med6, tamb_c, med9);
   
