@@ -4,9 +4,11 @@
  * Register-based I2C Communication for ESP-IDF
  */
 
-#include "Adafruit_BusIO_Register.h"#include "esp_log.h"
+#include "Adafruit_BusIO_Register.h"
+#include "esp_log.h"
+#include <string.h>
 
-static const char* TAG = "BusIO_Reg";#include <string.h>
+static const char* TAG = "BusIO_Reg";
 
 /*!
  *    @brief  Instantiates a new Adafruit_BusIO_Register class
