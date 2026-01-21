@@ -13,10 +13,18 @@
 
 #define I2C_TIMEOUT_MS 1000
 
-/*!
- *    @brief  Class that defines an I2C device
- *            Works with TwoWire (Arduino-compatible API used by ESPHome)
- */
+// Include Wire.h if available (ESPHome includes this)
+#ifdef __has_include
+  #if __has_include(<Wire.h>)
+    #include <Wire.h>
+  #else
+    // Forward declaration for environments without Wire.h
+    class TwoWire;
+  #endif
+#else
+  // Forward declaration - TwoWire is provided by ESPHome/Arduino environment
+  class TwoWire;
+#endif
 class Adafruit_I2CDevice {
 public:
   /**
