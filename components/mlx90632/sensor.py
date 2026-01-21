@@ -34,7 +34,7 @@ REFRESH_RATES = {
     "64hz": RefreshRate.REFRESH_RATE_64HZ,
 }
 
-CONFIG_SCHEMA = (
+CONFIG_SCHEMA = cv.All(
     sensor.sensor_schema(
         MLX90632Sensor,
         unit_of_measurement=UNIT_CELSIUS,
@@ -42,6 +42,7 @@ CONFIG_SCHEMA = (
         device_class=DEVICE_CLASS_TEMPERATURE,
         state_class=STATE_CLASS_MEASUREMENT,
     )
+    .extend(cv.polling_component_schema("2s"))
     .extend(
         {
             cv.Optional("measurement_select", default="extended_range"): cv.enum(
@@ -53,7 +54,6 @@ CONFIG_SCHEMA = (
             cv.Optional("emissivity", default=1.0): cv.float_range(min=0.1, max=1.0),
         }
     )
-    .extend(cv.polling_component_schema("1s"))
     .extend(i2c.i2c_device_schema(0x3A))
 )
 
