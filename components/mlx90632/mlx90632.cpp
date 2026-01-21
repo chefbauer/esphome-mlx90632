@@ -42,6 +42,33 @@ void MLX90632Component::setup() {
     ESP_LOGI(TAG, "Using Extended Range measurement mode");
   }
   
+  // Set emissivity
+  mlx90632_.setEmissivity(emissivity_);
+  
+  ESP_LOGI(TAG, "MLX90632 initialized successfully");
+}
+  
+  // Set to continuous mode for polling
+  if (!mlx90632_.setMode(MLX90632_MODE_CONTINUOUS)) {
+    ESP_LOGE(TAG, "Failed to set measurement mode");
+    this->mark_failed();
+    return;
+  }
+  
+  // Set medical mode or extended range (can be configured)
+  if (!mlx90632_.setMeasurementSelect(measurement_select_)) {
+    ESP_LOGE(TAG, "Failed to set measurement select");
+    this->mark_failed();
+    return;
+  }
+  
+  // Log which mode is active
+  if (measurement_select_ == MLX90632_MEAS_MEDICAL) {
+    ESP_LOGI(TAG, "Using Medical measurement mode");
+  } else {
+    ESP_LOGI(TAG, "Using Extended Range measurement mode");
+  }
+  
   // Log emissivity setting
   double emi = get_emissivity();
   ESP_LOGI(TAG, "Emissivity set to %.2f", emi);

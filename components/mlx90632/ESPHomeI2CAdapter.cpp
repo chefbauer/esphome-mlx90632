@@ -1,6 +1,9 @@
 #include "ESPHomeI2CAdapter.h"
 #include "esphome/core/log.h"
 
+namespace esphome {
+namespace mlx90632 {
+
 static const char *TAG = "mlx90632.i2c_adapter";
 
 void ESPHomeI2CAdapter::beginTransmission(uint8_t address) {
@@ -73,6 +76,9 @@ int ESPHomeI2CAdapter::read(void) {
 int ESPHomeI2CAdapter::available(void) {
   return rx_len_ - rx_pos_;
 }
+
+}  // namespace mlx90632
+}  // namespace esphome
 
 int ESPHomeI2CAdapter::available(void) {
   return (int)(rx_len_ - rx_pos_);
