@@ -63,8 +63,8 @@ void MLX90632Sensor::setup() {
     return;
   }
   
-  uint64_t product_id = ((uint64_t)id0 << 32) | ((uint64_t)id1 << 16) | id2;
-  ESP_LOGI(TAG, "%s Product ID: 0x%012llX", FW_VERSION, product_id);
+  product_id_ = ((uint64_t)id0 << 32) | ((uint64_t)id1 << 16) | id2;
+  ESP_LOGI(TAG, "%s Product ID: 0x%012llX", FW_VERSION, product_id_);
   
   // Read calibration from EEPROM
   if (!read_calibration()) {
@@ -340,41 +340,56 @@ void MLX90632Sensor::update() {
     return;
   }
   
+  // LOG SETUP INFO EVERY TIME (for debugging via web interface)
+  ESP_LOGI(TAG, "%s === SETUP SUMMARY ===", FW_VERSION);
+  ESP_LOGI(TAG, "%s Measurement Mode: %s", FW_VERSION, 
+           measurement_mode_ == MEASUREMENT_MODE_MEDICAL ? "MEDICAL" : "EXTENDED");
+  ESP_LOGI(TAG, "%s Product ID: 0x%012llX", FW_VERSION, product_id_);
+  ESP_LOGI(TAG, "%s Calibration loaded: P_R=%.2f", FW_VERSION, P_R);
+  
+  // Read and log current control register
+  uint16_t ctrl_current;
+  if (read_register16(REG_CONTROL, &ctrl_current)) {
+    ESP_LOGI(TAG, "%s Control Register: 0x%04X (Mode=%s, MeasSel=0x%X)", FW_VERSION, ctrl_current,
+             (ctrl_current & 0x0003) == 0 ? "HALT" : 
+             (ctrl_current & 0x0003) == 1 ? "STEP" : 
+             (ctrl_current & 0x0003) == 3 ? "CONTINUOUS" : "UNKNOWN",
+             (ctrl_current >> 4) & 0x1F);
+  }
+  
   ESP_LOGD(TAG, "%s Starting measurement cycle (continuous mode)...", FW_VERSION);
+  
+  // READ ALL RELEVANT REGISTERS FOR DEBUGGING
+  uint16_t ctrl_reg, status_reg;
+  if (read_register16(REG_CONTROL, &ctrl_reg)) {
+    ESP_LOGI(TAG, "%s Control: 0x%04X", FW_VERSION, ctrl_reg);
+  }
+  if (read_register16(REG_STATUS, &status_reg)) {
+    ESP_LOGI(TAG, "%s Status: 0x%04X (NewData=%d, CyclePos=%d, EEBusy=%d, DevBusy=%d)", 
+             FW_VERSION, status_reg,
+             (status_reg & STATUS_NEW_DATA) ? 1 : 0,
+             (status_reg & STATUS_CYCLE_POS_MASK) >> 2,
+             (status_reg & STATUS_EEPROM_BUSY) ? 1 : 0,
+             (status_reg & STATUS_DEVICE_BUSY) ? 1 : 0);
+  }
   
   // In continuous mode: Just check if new data is available
   // (Sensor runs continuously after setup, no need to trigger SOB every time!)
   if (!check_new_data()) {
     ESP_LOGW(TAG, "%s No new data available yet", FW_VERSION);
-    return;
-  }
-  
-  // DEBUG: Check control register
-  uint16_t ctrl_reg;
-  if (read_register16(REG_CONTROL, &ctrl_reg)) {
-    ESP_LOGV(TAG, "%s Control: 0x%04X", FW_VERSION, ctrl_reg);
-  }
-  
-  // DEBUG: Log calibration values once
-  static bool logged_cal = false;
-  if (!logged_cal) {
-    ESP_LOGI(TAG, "%s Cal: P_R=%.2f P_G=%.6f P_T=%.8f P_O=%.2f", FW_VERSION, P_R, P_G, P_T, P_O);
-    ESP_LOGI(TAG, "%s Cal: Ea=%.2f Eb=%.2f Ga=%.2f Gb=%.2f Ka=%.2f", FW_VERSION, Ea, Eb, Ga, Gb, Ka);
-    logged_cal = true;
-  }
-  
-  // Read status register
-  uint16_t status;
-  if (read_register16(REG_STATUS, &status)) {
-    ESP_LOGD(TAG, "%s Status: 0x%04X (NewData=%d, Cycle=%d)", 
-             FW_VERSION, status,
-             (status & STATUS_NEW_DATA) ? 1 : 0,
-             (status & STATUS_CYCLE_POS_MASK) >> 1);
-  }
-  
-  // Check for new data
-  if (!check_new_data()) {
-    ESP_LOGD(TAG, "%s No new data available", FW_VERSION);
+    
+    // DEBUG: Try reading RAM registers anyway to see if they change
+    uint16_t ram_obj, ram_amb;
+    if (measurement_mode_ == MEASUREMENT_MODE_EXTENDED) {
+      read_register16(RAM_52, &ram_obj);
+      read_register16(RAM_54, &ram_amb);
+    } else {
+      read_register16(RAM_6, &ram_obj);
+      read_register16(RAM_9, &ram_amb);
+    }
+    ESP_LOGD(TAG, "%s RAM values (no new data): OBJ=0x%04X (%d), AMB=0x%04X (%d)", 
+             FW_VERSION, ram_obj, (int16_t)ram_obj, ram_amb, (int16_t)ram_amb);
+    
     return;
   }
   

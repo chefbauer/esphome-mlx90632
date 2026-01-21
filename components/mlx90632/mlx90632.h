@@ -69,6 +69,7 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   bool setup_complete_{false};
   uint8_t update_count_{0};  // Count updates before forcing setup
   uint32_t setup_time_{0};   // millis() when setup completed
+  uint64_t product_id_{0};   // Product ID from EEPROM
 };
 
 }  // namespace mlx90632
