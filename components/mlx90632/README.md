@@ -26,6 +26,22 @@ The component uses:
 
 The sensor can publish both object temperature (measured IR) and ambient temperature (reference temperature) as separate sensor values.
 
+## Measurement Modes
+
+The MLX90632 supports two measurement modes that can be switched via the `measurement_select` configuration:
+
+### Medical Mode (Default)
+- **Range**: ±50°C around ambient temperature
+- **Use case**: Standard temperature measurements
+- **Accuracy**: High precision within the range
+
+### Extended Range Mode
+- **Range**: Wider measurement range
+- **Use case**: When you need measurements beyond ±50°C deviation from ambient
+- **Note**: Can be used on both medical and standard hardware versions
+
+**Important**: Both modes can be used on any MLX90632, regardless of whether it's labeled as "medical" or "standard" version. The hardware version primarily affects the factory calibration, but the measurement select mode can be switched in software.
+
 ## Example Configuration
 
 ```yaml
@@ -34,6 +50,7 @@ sensor:
     name: MLX90632 Temperature Sensor
     update_interval: 30s
     address: 0x3A  # Optional, default is 0x3A
+    measurement_select: medical  # Optional, default is 'medical'
     
     object_temperature:
       name: "Object Temperature"
@@ -53,6 +70,9 @@ i2c:
 
 - **update_interval** (*Optional*, int): How often to update the sensor. Defaults to 60s.
 - **address** (*Optional*, int): The I2C address of the sensor. Defaults to 0x3A.
+- **measurement_select** (*Optional*, string): The measurement mode. Can be `medical` (default) or `extended_range`.
+  - `medical`: Standard medical mode with ±50°C range
+  - `extended_range`: Extended range measurement mode (can be used even with medical hardware version)
 - **object_temperature** (*Optional*): The object (IR) temperature sensor. At least one temperature sensor must be configured.
   - **name** (*Optional*, string): The name of the object temperature sensor.
 - **ambient_temperature** (*Optional*): The ambient (reference) temperature sensor. At least one temperature sensor must be configured.

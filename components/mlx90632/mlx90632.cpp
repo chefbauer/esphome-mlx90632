@@ -26,11 +26,18 @@ void MLX90632Component::setup() {
     return;
   }
   
-  // Set medical mode (default)
-  if (!mlx90632_.setMeasurementSelect(MLX90632_MEAS_MEDICAL)) {
+  // Set medical mode or extended range (can be configured)
+  if (!mlx90632_.setMeasurementSelect(measurement_select_)) {
     ESP_LOGE(TAG, "Failed to set measurement select");
     this->mark_failed();
     return;
+  }
+  
+  // Log which mode is active
+  if (measurement_select_ == MLX90632_MEAS_MEDICAL) {
+    ESP_LOGI(TAG, "Using Medical measurement mode");
+  } else {
+    ESP_LOGI(TAG, "Using Extended Range measurement mode");
   }
   
   // Set refresh rate to 2Hz

@@ -10,8 +10,16 @@ MLX90632Component = mlx90632_ns.class_(
     "MLX90632Component", cg.PollingComponent, i2c.I2CDevice
 )
 
+# Use Adafruit enum from C++
+MeasurementSelect = mlx90632_ns.enum("mlx90632_meas_select_t")
+MEASUREMENT_SELECTS = {
+    "medical": MeasurementSelect.MLX90632_MEAS_MEDICAL,
+    "extended_range": MeasurementSelect.MLX90632_MEAS_EXTENDED_RANGE,
+}
+
 CONF_OBJECT_TEMPERATURE = "object_temperature"
 CONF_AMBIENT_TEMPERATURE = "ambient_temperature"
+CONF_MEASUREMENT_SELECT = "measurement_select"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -27,6 +35,9 @@ CONFIG_SCHEMA = cv.All(
                 icon=ICON_THERMOMETER,
                 accuracy_decimals=2,
             ),
+            cv.Optional(CONF_MEASUREMENT_SELECT, default="medical"): cv.enum(
+                MEASUREMENT_SELECTS, lower=True
+            ),
         }
     )
     .extend(cv.polling_component_schema("60s"))
@@ -39,6 +50,8 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
+
+    cg.add(var.set_measurement_select(config[CONF_MEASUREMENT_SELECT]))
 
     if CONF_OBJECT_TEMPERATURE in config:
         sens = await sensor.new_sensor(config[CONF_OBJECT_TEMPERATURE])
