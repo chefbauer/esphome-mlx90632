@@ -10,28 +10,28 @@ MLX90632Component = mlx90632_ns.class_(
     "MLX90632Component", cg.PollingComponent, i2c.I2CDevice
 )
 
-# Use Adafruit enum from C++
-MeasurementSelect = mlx90632_ns.enum("mlx90632_meas_select_t")
-MEASUREMENT_SELECTS = {
-    "medical": MeasurementSelect.MLX90632_MEAS_MEDICAL,
-    "extended_range": MeasurementSelect.MLX90632_MEAS_EXTENDED_RANGE,
+# Native enums
+MeasurementMode = mlx90632_ns.enum("MeasurementMode")
+MEASUREMENT_MODES = {
+    "medical": MeasurementMode.MEASUREMENT_MODE_MEDICAL,
+    "extended": MeasurementMode.MEASUREMENT_MODE_EXTENDED,
 }
 
-RefreshRate = mlx90632_ns.enum("mlx90632_refresh_rate_t")
+RefreshRate = mlx90632_ns.enum("RefreshRate")
 REFRESH_RATES = {
-    "0.5hz": RefreshRate.MLX90632_REFRESH_0_5HZ,
-    "1hz": RefreshRate.MLX90632_REFRESH_1HZ,
-    "2hz": RefreshRate.MLX90632_REFRESH_2HZ,
-    "4hz": RefreshRate.MLX90632_REFRESH_4HZ,
-    "8hz": RefreshRate.MLX90632_REFRESH_8HZ,
-    "16hz": RefreshRate.MLX90632_REFRESH_16HZ,
-    "32hz": RefreshRate.MLX90632_REFRESH_32HZ,
-    "64hz": RefreshRate.MLX90632_REFRESH_64HZ,
+    "0.5hz": RefreshRate.REFRESH_RATE_0_5HZ,
+    "1hz": RefreshRate.REFRESH_RATE_1HZ,
+    "2hz": RefreshRate.REFRESH_RATE_2HZ,
+    "4hz": RefreshRate.REFRESH_RATE_4HZ,
+    "8hz": RefreshRate.REFRESH_RATE_8HZ,
+    "16hz": RefreshRate.REFRESH_RATE_16HZ,
+    "32hz": RefreshRate.REFRESH_RATE_32HZ,
+    "64hz": RefreshRate.REFRESH_RATE_64HZ,
 }
 
 CONF_OBJECT_TEMPERATURE = "object_temperature"
 CONF_AMBIENT_TEMPERATURE = "ambient_temperature"
-CONF_MEASUREMENT_SELECT = "measurement_select"
+CONF_MEASUREMENT_MODE = "measurement_mode"
 CONF_REFRESH_RATE = "refresh_rate"
 CONF_EMISSIVITY = "emissivity"
 
@@ -49,8 +49,8 @@ CONFIG_SCHEMA = cv.All(
                 icon=ICON_THERMOMETER,
                 accuracy_decimals=2,
             ),
-            cv.Optional(CONF_MEASUREMENT_SELECT, default="medical"): cv.enum(
-                MEASUREMENT_SELECTS, lower=True
+            cv.Optional(CONF_MEASUREMENT_MODE, default="extended"): cv.enum(
+                MEASUREMENT_MODES, lower=True
             ),
             cv.Optional(CONF_REFRESH_RATE, default="2hz"): cv.enum(
                 REFRESH_RATES, lower=True
@@ -71,7 +71,7 @@ async def to_code(config):
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
 
-    cg.add(var.set_measurement_select(config[CONF_MEASUREMENT_SELECT]))
+    cg.add(var.set_measurement_mode(config[CONF_MEASUREMENT_MODE]))
     cg.add(var.set_refresh_rate(config[CONF_REFRESH_RATE]))
     cg.add(var.set_emissivity(config[CONF_EMISSIVITY]))
 
