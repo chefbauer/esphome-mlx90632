@@ -300,31 +300,28 @@ float MLX90632Sensor::calculate_object_temperature() {
 
 // Update: Read and publish temperatures
 void MLX90632Sensor::update() {
-  ESP_LOGD(TAG, "%s === UPDATE CALLED === (ready=%d, millis=%lu, P_R=%.6f)", 
-           FW_VERSION, setup_complete_, millis(), P_R);
+  uint32_t now = millis();
+  ESP_LOGI(TAG, "%s === UPDATE #%d === (millis=%lu, P_R=%.2f)", 
+           FW_VERSION, update_count_++, now, P_R);
   
   // Don't run before 2 seconds after boot
-  if (millis() < 2000) {
-    ESP_LOGD(TAG, "%s Skipping - waiting for boot (millis=%lu)", FW_VERSION, millis());
+  if (now < 2000) {
+    ESP_LOGD(TAG, "%s Skipping - too early (millis=%lu)", FW_VERSION, now);
     return;
   }
   
   if (this->is_failed()) {
-    ESP_LOGD(TAG, "%s Component failed", FW_VERSION);
+    ESP_LOGE(TAG, "%s Component marked as failed!", FW_VERSION);
     return;
   }
   
-  // Run setup once if not done
+  // Check if setup ran and calibration is valid
   if (!setup_complete_ || P_R == 0.0) {
-    ESP_LOGI(TAG, "%s Running setup (first time or after reset)", FW_VERSION);
-    this->setup();
-    if (P_R == 0.0) {
-      ESP_LOGE(TAG, "%s Setup failed - calibration still zero!", FW_VERSION);
-      return;
-    }
-    ESP_LOGI(TAG, "%s Setup complete, starting measurements", FW_VERSION);
-    return;  // Skip this update, measure on next one
+    ESP_LOGE(TAG, "%s Setup incomplete! ready=%d P_R=%.2f", FW_VERSION, setup_complete_, P_R);
+    return;
   }
+  
+  ESP_LOGD(TAG, "%s Starting measurement cycle...", FW_VERSION);
   
   // DEBUG: Check control register
   uint16_t ctrl_reg;
@@ -362,7 +359,9 @@ void MLX90632Sensor::update() {
   ESP_LOGI(TAG, "%s Ambient: %.2f°C, Object: %.2f°C", FW_VERSION, ambient_temp, object_temp);
   
   // Publish object temperature to sensor
+  ESP_LOGD(TAG, "%s Publishing state...", FW_VERSION);
   this->publish_state(object_temp);
+  ESP_LOGD(TAG, "%s === UPDATE COMPLETE ===", FW_VERSION);
 }
 
 // Dump config
