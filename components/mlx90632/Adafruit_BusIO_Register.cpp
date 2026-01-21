@@ -5,10 +5,10 @@
  */
 
 #include "Adafruit_BusIO_Register.h"
-#include "esp_log.h"
+#include "esphome/core/log.h"
 #include <string.h>
 
-static const char* TAG = "BusIO_Reg";
+static const char* TAG = "mlx90632";
 
 /*!
  *    @brief  Instantiates a new Adafruit_BusIO_Register class
