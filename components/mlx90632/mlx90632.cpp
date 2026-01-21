@@ -79,16 +79,16 @@ void MLX90632Sensor::setup() {
     ESP_LOGI(TAG, "%s Control before: 0x%04X", FW_VERSION, ctrl_before);
   }
   
-  // TEMPORARY: Test Medical Continuous mode (skip extended switch)
-  // Set Continuous mode (11) with Medical range (0x00)
-  // meas_select[4:0]=0x00 in bits 8:4 = 0x000, mode[1:0]=11 = 0x003
-  uint16_t ctrl_value = 0x0003;  // Medical + Continuous
+  // TEMPORARY: Test Step Mode instead of Continuous
+  // Set Step mode (01) with Medical range (0x00)
+  // meas_select[4:0]=0x00 in bits 8:4 = 0x000, mode[1:0]=01 = 0x001
+  uint16_t ctrl_value = 0x0001;  // Medical + Step
   if (!write_register16(REG_CONTROL, ctrl_value)) {
-    ESP_LOGE(TAG, "%s Failed to set Medical Continuous", FW_VERSION);
+    ESP_LOGE(TAG, "%s Failed to set Medical Step", FW_VERSION);
     this->mark_failed();
     return;
   }
-  ESP_LOGI(TAG, "%s Control set to 0x%04X (Medical Continuous)", FW_VERSION, ctrl_value);
+  ESP_LOGI(TAG, "%s Control set to 0x%04X (Medical Step)", FW_VERSION, ctrl_value);
   
   // Read back to verify
   uint16_t ctrl_after_write;
@@ -357,7 +357,7 @@ void MLX90632Sensor::update() {
              (ctrl_current >> 4) & 0x1F);
   }
   
-  ESP_LOGD(TAG, "%s Starting measurement cycle (continuous mode)...", FW_VERSION);
+  ESP_LOGD(TAG, "%s Starting measurement cycle (step mode)...", FW_VERSION);
   
   // READ ALL RELEVANT REGISTERS FOR DEBUGGING
   uint16_t ctrl_reg, status_reg;
@@ -373,10 +373,9 @@ void MLX90632Sensor::update() {
              (status_reg & STATUS_DEVICE_BUSY) ? 1 : 0);
   }
   
-  // In continuous mode: Just check if new data is available
-  // (Sensor runs continuously after setup, no need to trigger SOB every time!)
+  // In step mode: Check if measurement is complete
   if (!check_new_data()) {
-    ESP_LOGW(TAG, "%s No new data available yet", FW_VERSION);
+    ESP_LOGW(TAG, "%s Measurement not ready yet", FW_VERSION);
     
     // DEBUG: Try reading RAM registers anyway to see if they change
     uint16_t ram_obj, ram_amb;
@@ -407,6 +406,14 @@ void MLX90632Sensor::update() {
   uint16_t status_clear = status & ~STATUS_NEW_DATA;
   if (!write_register16(REG_STATUS, status_clear)) {
     ESP_LOGW(TAG, "%s Failed to clear NewData flag", FW_VERSION);
+  }
+  
+  // In Step Mode: Start next measurement by writing control register again
+  uint16_t ctrl_step = 0x0001;  // Medical + Step
+  if (!write_register16(REG_CONTROL, ctrl_step)) {
+    ESP_LOGW(TAG, "%s Failed to start next measurement", FW_VERSION);
+  } else {
+    ESP_LOGD(TAG, "%s Started next measurement (Step Mode)", FW_VERSION);
   }
   
   ESP_LOGI(TAG, "%s Ambient: %.2f°C, Object: %.2f°C", FW_VERSION, ambient_temp, object_temp);
