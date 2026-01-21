@@ -12,6 +12,22 @@ namespace mlx90632 {
 static const char *const TAG = "mlx90632";
 static const char *const FW_VERSION = "V.N1";
 
+enum MeasurementMode {
+  MEASUREMENT_MODE_MEDICAL = 0,
+  MEASUREMENT_MODE_EXTENDED = 1
+};
+
+enum RefreshRate {
+  REFRESH_RATE_0_5HZ = 0,
+  REFRESH_RATE_1HZ = 1,
+  REFRESH_RATE_2HZ = 2,
+  REFRESH_RATE_4HZ = 3,
+  REFRESH_RATE_8HZ = 4,
+  REFRESH_RATE_16HZ = 5,
+  REFRESH_RATE_32HZ = 6,
+  REFRESH_RATE_64HZ = 7
+};
+
 class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2c::I2CDevice {
  public:
   void setup() override;
@@ -19,6 +35,8 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
 
+  void set_measurement_mode(MeasurementMode mode) { measurement_mode_ = mode; }
+  void set_refresh_rate(RefreshRate rate) { refresh_rate_ = rate; }
   void set_emissivity(float emissivity) { emissivity_ = emissivity; }
 
  protected:
@@ -41,6 +59,8 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   double TO0{25.0};  // Previous object temperature
   double TA0{25.0};  // Previous ambient temperature
   
+  MeasurementMode measurement_mode_{MEASUREMENT_MODE_EXTENDED};
+  RefreshRate refresh_rate_{REFRESH_RATE_2HZ};
   float emissivity_{1.0};
   bool setup_complete_{false};
 };
