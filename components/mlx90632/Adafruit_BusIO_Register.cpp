@@ -7,7 +7,7 @@
 #include "Adafruit_BusIO_Register.h"
 #include <string.h>
 
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   #include "esp_log.h"
   static const char* TAG = "BusIO_Register";
 #endif

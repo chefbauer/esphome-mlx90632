@@ -10,15 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Platform detection
-#ifdef ESP_IDF_VERSION
-  // ESP-IDF platform
-  #include "driver/i2c_master.h"
-#else
-  // Arduino platform
-  #include "Arduino.h"
-#endif
-
+// Include I2CDevice first (it handles platform detection and includes)
 #include "Adafruit_I2CDevice.h"
 
 // Byte order constants

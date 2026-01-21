@@ -6,14 +6,13 @@
 
 #include "Adafruit_I2CDevice.h"
 
-#ifdef ESP_IDF_VERSION
-  // ESP-IDF: Use native I2C driver
-  #include "driver/i2c_master.h"
+// Platform-specific includes
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
+  // ESP-IDF
   #include "esp_log.h"
   static const char* TAG = "I2CDevice";
 #else
-  // Arduino: Use TwoWire
-  #include <Wire.h>
+  // Arduino
   #include "Arduino.h"
 #endif
 
@@ -25,7 +24,7 @@
  */
 Adafruit_I2CDevice::Adafruit_I2CDevice(uint8_t addr, void *theWire)
     : _addr(addr), _wire(theWire), _begun(false) {
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   _is_esp_idf_native = (theWire == nullptr);
 #endif
 }
@@ -41,12 +40,11 @@ Adafruit_I2CDevice::~Adafruit_I2CDevice() { end(); }
  *    @return True if device found on I2C bus, false otherwise
  */
 bool Adafruit_I2CDevice::begin(bool addr_lower) {
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   if (_is_esp_idf_native) {
     // ESP-IDF native mode
     // Device detection would be done at bus initialization
     _begun = true;
-    ESP_LOGI(TAG, "I2CDevice initialized for address 0x%02X (ESP-IDF native)", _addr);
     return true;
   }
 #endif
@@ -76,7 +74,7 @@ void Adafruit_I2CDevice::end(void) { _begun = false; }
  *    @return True if device found at the set address, false otherwise
  */
 bool Adafruit_I2CDevice::detected(void) {
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   if (_is_esp_idf_native) {
     // In ESP-IDF, device detection is assumed to be done at bus level
     return _begun;
@@ -106,7 +104,7 @@ bool Adafruit_I2CDevice::write(const uint8_t *buffer, size_t len, bool stop,
     return false;
   }
 
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   if (_is_esp_idf_native) {
     // ESP-IDF native implementation would go here
     // For now, this is a placeholder for full ESP-IDF I2C master implementation
@@ -153,7 +151,7 @@ bool Adafruit_I2CDevice::read(uint8_t *buffer, size_t len, bool stop) {
     return false;
   }
 
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   if (_is_esp_idf_native) {
     // ESP-IDF native implementation would go here
     return true;
@@ -206,7 +204,7 @@ bool Adafruit_I2CDevice::read_then_write(const uint8_t *write_buffer,
   }
 
   // Small delay to allow sensor to prepare response
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   vTaskDelay(1 / portTICK_PERIOD_MS);
 #else
   delay(1);
@@ -220,7 +218,7 @@ bool Adafruit_I2CDevice::read_then_write(const uint8_t *write_buffer,
  *    @param  freq Frequency in Hz
  */
 void Adafruit_I2CDevice::setSpeed(uint32_t freq) {
-#ifdef ESP_IDF_VERSION
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
   // ESP-IDF: I2C speed is configured at bus initialization
   // This is a no-op for native ESP-IDF
 #else

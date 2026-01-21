@@ -11,13 +11,14 @@
 #include <string.h>
 #include <stdbool.h>
 
-// Determine platform and include appropriate headers
-#ifdef ESP_IDF_VERSION
-  // ESP-IDF platform (native)
-  #include "driver/i2c_master.h"
+// Platform detection: check for ESP-IDF first (more specific)
+#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
+  // ESP-IDF platform
+  #define USING_ESP_IDF 1
   #define I2C_TIMEOUT_MS 1000
 #else
   // Arduino platform
+  #define USING_ESP_IDF 0
   #include "Arduino.h"
   #include <Wire.h>
   #define I2C_TIMEOUT_MS 1000
