@@ -1,4 +1,5 @@
 #include "esphome/core/log.h"
+#include "esphome/core/application.h"
 #include "mlx90632.h"
 
 namespace esphome {
@@ -9,8 +10,28 @@ static const char *TAG = "mlx90632";
 void MLX90632Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up MLX90632...");
   
-  // Create I2C adapter using component's I2C bus
-  i2c_adapter_ = new ESPHomeI2CAdapter(this->i2c_);
+  // Get the I2C bus - I2CDevice components are registered as children of an I2CBus
+  // Access through the Application component manager
+  i2c::I2CBus* bus = nullptr;
+  
+  // Find the I2C bus that this device is connected to
+  // by searching for a bus component with the matching address
+  for (auto *comp : App.get_component_list()) {
+    auto *i2c_bus = dynamic_cast<i2c::I2CBus*>(comp);
+    if (i2c_bus != nullptr) {
+      bus = i2c_bus;
+      break;
+    }
+  }
+  
+  if (!bus) {
+    ESP_LOGE(TAG, "Failed to get I2C bus");
+    this->mark_failed();
+    return;
+  }
+  
+  // Create I2C adapter using the ESPHome I2C bus
+  i2c_adapter_ = new ESPHomeI2CAdapter(bus);
   
   // Initialize the Adafruit MLX90632 library with the ESPHome I2C adapter
   if (!mlx90632_.begin(this->address_, i2c_adapter_)) {

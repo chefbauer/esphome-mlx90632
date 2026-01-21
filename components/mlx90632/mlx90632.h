@@ -22,7 +22,7 @@ class MLX90632Component : public PollingComponent, public i2c::I2CDevice {
   void set_emissivity(double emissivity) { emissivity_ = emissivity; }
   double get_emissivity() const { return (emissivity_ == 0.0) ? 1.0 : emissivity_; }
 
- private:
+ protected:
   Adafruit_MLX90632 mlx90632_;
   ESPHomeI2CAdapter* i2c_adapter_;
   sensor::Sensor *object_temperature_sensor_{nullptr};
@@ -30,7 +30,6 @@ class MLX90632Component : public PollingComponent, public i2c::I2CDevice {
   mlx90632_meas_select_t measurement_select_{MLX90632_MEAS_MEDICAL};
   mlx90632_refresh_rate_t refresh_rate_{MLX90632_REFRESH_2HZ};
   double emissivity_{1.0};
-};
 
 }  // namespace mlx90632
 }  // namespace esphome
