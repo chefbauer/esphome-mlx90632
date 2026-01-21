@@ -45,62 +45,32 @@ void MLX90632Component::setup() {
   // Set emissivity
   mlx90632_.setEmissivity(emissivity_);
   
-  ESP_LOGI(TAG, "MLX90632 initialized successfully");
-}
-  
-  // Set to continuous mode for polling
-  if (!mlx90632_.setMode(MLX90632_MODE_CONTINUOUS)) {
-    ESP_LOGE(TAG, "Failed to set measurement mode");
-    this->mark_failed();
-    return;
-  }
-  
-  // Set medical mode or extended range (can be configured)
-  if (!mlx90632_.setMeasurementSelect(measurement_select_)) {
-    ESP_LOGE(TAG, "Failed to set measurement select");
-    this->mark_failed();
-    return;
-  }
-  
-  // Log which mode is active
-  if (measurement_select_ == MLX90632_MEAS_MEDICAL) {
-    ESP_LOGI(TAG, "Using Medical measurement mode");
-  } else {
-    ESP_LOGI(TAG, "Using Extended Range measurement mode");
-  }
-  
-  // Log emissivity setting
-  double emi = get_emissivity();
-  ESP_LOGI(TAG, "Emissivity set to %.2f", emi);
-  
   // Set refresh rate (can be configured)
   // Note: Only set if different from current to avoid excessive EEPROM writes
   mlx90632_refresh_rate_t current_rate = mlx90632_.getRefreshRate();
   if (current_rate != refresh_rate_) {
     if (!mlx90632_.setRefreshRate(refresh_rate_)) {
-      ESP_LOGE(TAG, "Failed to set refresh rate");
-      this->mark_failed();
-      return;
+      ESP_LOGW(TAG, "Failed to set refresh rate");
+    } else {
+      // Log refresh rate
+      uint16_t refresh_ms = 0;
+      switch (refresh_rate_) {
+        case MLX90632_REFRESH_0_5HZ: refresh_ms = 2000; break;
+        case MLX90632_REFRESH_1HZ: refresh_ms = 1000; break;
+        case MLX90632_REFRESH_2HZ: refresh_ms = 500; break;
+        case MLX90632_REFRESH_4HZ: refresh_ms = 250; break;
+        case MLX90632_REFRESH_8HZ: refresh_ms = 125; break;
+        case MLX90632_REFRESH_16HZ: refresh_ms = 62; break;
+        case MLX90632_REFRESH_32HZ: refresh_ms = 31; break;
+        case MLX90632_REFRESH_64HZ: refresh_ms = 16; break;
+      }
+      ESP_LOGI(TAG, "Refresh rate set to %u ms per measurement", refresh_ms);
     }
-    
-    // Log refresh rate
-    uint16_t refresh_ms = 0;
-    switch (refresh_rate_) {
-      case MLX90632_REFRESH_0_5HZ: refresh_ms = 2000; break;
-      case MLX90632_REFRESH_1HZ: refresh_ms = 1000; break;
-      case MLX90632_REFRESH_2HZ: refresh_ms = 500; break;
-      case MLX90632_REFRESH_4HZ: refresh_ms = 250; break;
-      case MLX90632_REFRESH_8HZ: refresh_ms = 125; break;
-      case MLX90632_REFRESH_16HZ: refresh_ms = 62; break;
-      case MLX90632_REFRESH_32HZ: refresh_ms = 31; break;
-      case MLX90632_REFRESH_64HZ: refresh_ms = 16; break;
-    }
-    ESP_LOGI(TAG, "Refresh rate updated to %u ms per measurement", refresh_ms);
   } else {
-    ESP_LOGD(TAG, "Refresh rate already set correctly, skipping EEPROM write");
+    ESP_LOGD(TAG, "Refresh rate already correct, skipping EEPROM write");
   }
   
-  ESP_LOGD(TAG, "MLX90632 initialized successfully");
+  ESP_LOGI(TAG, "MLX90632 initialized successfully");
   
   uint64_t product_id = mlx90632_.getProductID();
   ESP_LOGI(TAG, "Product ID: 0x%012" PRIx64, product_id);
