@@ -279,7 +279,7 @@ float MLX90632Sensor::calculate_object_temperature() {
 }
 
 // Update: Read and publish temperatures
-void MLX90632Component::update() {
+void MLX90632Sensor::update() {
   ESP_LOGD(TAG, "%s === UPDATE CALLED ===", FW_VERSION);
   
   if (this->is_failed()) {
