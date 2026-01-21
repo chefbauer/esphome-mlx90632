@@ -79,9 +79,27 @@ void MLX90632Sensor::setup() {
     ESP_LOGI(TAG, "%s Control before: 0x%04X", FW_VERSION, ctrl_before);
   }
   
-  // TEMPORARY: Test Step Mode instead of Continuous
-  // Set Step mode (01) with Medical range (0x00)
-  // meas_select[4:0]=0x00 in bits 8:4 = 0x000, mode[1:0]=01 = 0x001
+  // TEMPORARY: Test Step Mode with proper reset sequence
+  // 1. Send addressed reset (write 0x0006 to 0x3005)
+  if (!write_register16(0x3005, 0x0006)) {
+    ESP_LOGE(TAG, "%s Failed to send reset", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  delay(200);  // Wait for reset to complete
+  ESP_LOGI(TAG, "%s Addressed reset done", FW_VERSION);
+  
+  // 2. Set HALT mode (00) with Medical range (0x00)
+  uint16_t ctrl_halt = 0x0000;  // Medical + HALT
+  if (!write_register16(REG_CONTROL, ctrl_halt)) {
+    ESP_LOGE(TAG, "%s Failed to set HALT", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  delay(10);
+  ESP_LOGI(TAG, "%s Set to HALT (0x%04X)", FW_VERSION, ctrl_halt);
+  
+  // 3. Set Step mode (01) with Medical range (0x00)
   uint16_t ctrl_value = 0x0001;  // Medical + Step
   if (!write_register16(REG_CONTROL, ctrl_value)) {
     ESP_LOGE(TAG, "%s Failed to set Medical Step", FW_VERSION);
