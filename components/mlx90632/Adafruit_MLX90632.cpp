@@ -416,6 +416,8 @@ double Adafruit_MLX90632::getAmbientTemperature() {
 
     ram_ambient = (int16_t)ram54_reg.read();
     ram_ref = (int16_t)ram57_reg.read();
+    ESP_LOGI("MLX90632", "[AMBIENT] Extended mode - RAM_54=0x%04X (%d), RAM_57=0x%04X (%d)",
+             (uint16_t)ram_ambient, ram_ambient, (uint16_t)ram_ref, ram_ref);
   } else {
     // Medical mode: use RAM_6 and RAM_9 (default)
     Adafruit_BusIO_Register ram6_reg = Adafruit_BusIO_Register(
@@ -425,6 +427,8 @@ double Adafruit_MLX90632::getAmbientTemperature() {
 
     ram_ambient = (int16_t)ram6_reg.read();
     ram_ref = (int16_t)ram9_reg.read();
+    ESP_LOGI("MLX90632", "[AMBIENT] Medical mode - RAM_6=0x%04X (%d), RAM_9=0x%04X (%d)",
+             (uint16_t)ram_ambient, ram_ambient, (uint16_t)ram_ref, ram_ref);
   }
 
   // Pre-calculations for ambient temperature (same for both modes)
@@ -469,6 +473,10 @@ double Adafruit_MLX90632::getObjectTemperature() {
     ambient_new_raw = (int16_t)ram54_reg.read();
     int16_t ambient_new_old = (int16_t)ram55_reg.read();
     ambient_old_raw = (int16_t)ram56_reg.read();
+    
+    ESP_LOGI("MLX90632", "[OBJECT] Extended - RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_55=0x%04X RAM_56=0x%04X",
+             (uint16_t)object_new_raw, (uint16_t)object_old_raw, (uint16_t)ambient_new_raw, 
+             (uint16_t)ambient_new_old, (uint16_t)ambient_old_raw);
 
     return calcObjectTemperatureExtended(object_new_raw, object_old_raw, ambient_new_raw, 
                                          ambient_old_raw, Ka, Gb, Ea, Eb, Ga, Fa / 2.0, 
