@@ -16,6 +16,7 @@
  */
 
 #include "Adafruit_MLX90632.h"
+#include "I2CInterface.h"
 #include <math.h>
 #include <unistd.h>
 
@@ -47,17 +48,17 @@ Adafruit_MLX90632::~Adafruit_MLX90632() {
 /*!
  *    @brief  Sets up the hardware and initializes I2C
  *    @param  i2c_address The I2C address to be used.
- *    @param  i2c_device The Adafruit_I2CDevice object to be used for I2C connections.
+ *    @param  i2c_interface The I2CInterface object to be used for I2C communications.
  *    @return True if initialization was successful, otherwise false.
  */
-bool Adafruit_MLX90632::begin(uint8_t i2c_address, Adafruit_I2CDevice* i2c_device) {
+bool Adafruit_MLX90632::begin(uint8_t i2c_address, I2CInterface* i2c_interface) {
   if (i2c_dev) {
     delete i2c_dev;
   }
-  if (i2c_device) {
-    i2c_dev = i2c_device;
+  if (i2c_interface) {
+    i2c_dev = new Adafruit_I2CDevice(i2c_address, (void*)i2c_interface);
   } else {
-    return false;  // No I2C device provided
+    return false;  // No I2C interface provided
   }
 
   if (!i2c_dev->begin()) {

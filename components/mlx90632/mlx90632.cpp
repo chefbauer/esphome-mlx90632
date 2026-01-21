@@ -9,8 +9,8 @@ static const char *TAG = "mlx90632";
 void MLX90632Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up MLX90632...");
   
-  // Create I2C adapter
-  i2c_adapter_ = new ESPHomeI2CAdapter(this->i2c_);
+  // Create I2C adapter using parent's I2C bus
+  i2c_adapter_ = new ESPHomeI2CAdapter(this->parent_->i2c_);
   
   // Initialize the Adafruit MLX90632 library with the ESPHome I2C adapter
   if (!mlx90632_.begin(this->address_, i2c_adapter_)) {
