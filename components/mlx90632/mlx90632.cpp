@@ -84,23 +84,17 @@ void MLX90632Component::update() {
     return;
   }
   
-  ESP_LOGD(TAG, "Update called");
-  
   // Check if new data is available
   if (!mlx90632_.isNewData()) {
-    ESP_LOGD(TAG, "No new data available yet");
+    ESP_LOGV(TAG, "No new data available yet");
     return;
   }
   
-  ESP_LOGD(TAG, "New data available, reading temperatures...");
-  
   // Read ambient temperature
   double ambient_temp = mlx90632_.getAmbientTemperature();
-  ESP_LOGD(TAG, "Ambient Temperature: %.2f°C", ambient_temp);
   
   // Read object temperature
   double object_temp = mlx90632_.getObjectTemperature();
-  ESP_LOGD(TAG, "Object Temperature: %.2f°C", object_temp);
   
   // Publish ambient temperature if sensor is configured
   if (ambient_temperature_sensor_ != nullptr) {
@@ -113,8 +107,7 @@ void MLX90632Component::update() {
   }
   
   // Reset new data flag for next measurement
-  bool reset_ok = mlx90632_.resetNewData();
-  ESP_LOGD(TAG, "Reset new data flag: %s", reset_ok ? "OK" : "FAILED");
+  mlx90632_.resetNewData();
 }
 
 void MLX90632Component::dump_config() {

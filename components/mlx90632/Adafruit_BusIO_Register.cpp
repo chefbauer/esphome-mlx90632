@@ -55,17 +55,11 @@ uint32_t Adafruit_BusIO_Register::read() {
     addr_buffer[0] = _address & 0xFF;
   }
 
-  ESP_LOGD(TAG, "Reading reg 0x%04X", _address);
-
   // Use Adafruit_I2CDevice's read method which will handle the write-read transaction
   if (!_i2cDevice->read_then_write(addr_buffer, _regWidth, buffer, _width)) {
     ESP_LOGW(TAG, "Read failed for reg 0x%04X", _address);
     return 0;
   }
-
-  // Log raw bytes for ALL reads
-  ESP_LOGD(TAG, "Reg 0x%04X: [0x%02X 0x%02X 0x%02X 0x%02X]", 
-           _address, buffer[0], buffer[1], buffer[2], buffer[3]);
 
   // Convert bytes to 32-bit value based on byte order
   uint32_t value = 0;
