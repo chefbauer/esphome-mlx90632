@@ -127,17 +127,6 @@ void MLX90632Component::update() {
   // Log RAM register values (Extended range mode)
   uint16_t ram_52 = 0, ram_53 = 0, ram_54 = 0, ram_55 = 0, ram_56 = 0, ram_57 = 0;
   
-  // Helper lambda to read 16-bit register with 16-bit address
-  auto read_reg = [this](uint16_t addr, uint16_t *value) {
-    uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
-    uint8_t data_buf[2] = {0};
-    if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
-      *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
-      return true;
-    }
-    return false;
-  };
-  
   read_reg(0x4005, &ram_52);  // RAM_52 - Object new
   read_reg(0x4006, &ram_53);  // RAM_53 - Object old
   read_reg(0x4007, &ram_54);  // RAM_54 - Ambient new
