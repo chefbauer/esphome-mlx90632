@@ -87,13 +87,13 @@ void MLX90632Sensor::setup() {
   }
   delay(100);
   
-  // 4. Set to continuous mode
-  if (!write_register16(0x24D4, 0x0003)) {
-    ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
+  // 4. Set to step mode (more reliable than continuous for this sensor)
+  if (!write_register16(0x24D4, 0x0001)) {  // EE_CONTROL: Medical Step mode
+    ESP_LOGE(TAG, "%s Failed to set step mode", FW_VERSION);
     this->mark_failed();
     return;
   }
-  ESP_LOGI(TAG, "%s Set to medical continuous mode", FW_VERSION);
+  ESP_LOGI(TAG, "%s Set to medical step mode", FW_VERSION);
   
   // 5. Wait for sensor to stabilize
   delay(2000);
@@ -180,6 +180,9 @@ void MLX90632Sensor::update() {
   
   ESP_LOGI(TAG, "%s Temperatures: Object=%.2f°C (0x%04X), Ambient=%.2f°C (0x%04X)", 
            FW_VERSION, tobj_c, med6, tamb_c, med9);
+  
+  // In step mode: trigger next measurement
+  write_register16(0x24D4, 0x0001);  // Re-trigger step mode
   
   // Publish object temperature
   this->publish_state(tobj_c);
