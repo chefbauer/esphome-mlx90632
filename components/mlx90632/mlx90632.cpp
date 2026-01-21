@@ -80,21 +80,16 @@ void MLX90632Component::setup() {
 }
 
 void MLX90632Component::update() {
-  static bool calibration_logged = false;
-  
   ESP_LOGD(TAG, "=== UPDATE CALLED ===");
   if (this->is_failed()) {
     ESP_LOGD(TAG, "Component is failed, returning");
     return;
   }
   
-  // Log calibration data once
-  if (!calibration_logged) {
-    ESP_LOGI(TAG, "Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
-             mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
-             mlx90632_.Ga, mlx90632_.Gb, mlx90632_.Ka);
-    calibration_logged = true;
-  }
+  // Log calibration data at every update
+  ESP_LOGD(TAG, "Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
+           mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
+           mlx90632_.Ga, mlx90632_.Gb, mlx90632_.Ka);
   
   // Check if new data is available
   if (!mlx90632_.isNewData()) {
