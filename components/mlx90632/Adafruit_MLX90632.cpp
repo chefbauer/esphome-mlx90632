@@ -504,7 +504,9 @@ double Adafruit_MLX90632::getObjectTemperature() {
  *    @return Byte-swapped value
  */
 uint16_t Adafruit_MLX90632::swapBytes(uint16_t value) {
-  return (value << 8) | (value >> 8);
+  // ESPHome I2C adapter already handles big-endian register addresses
+  // No byte swapping needed - return value as-is
+  return value;
 }
 
 // Global emissivity variable for temperature calculations
