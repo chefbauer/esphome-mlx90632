@@ -8,6 +8,24 @@
 namespace esphome {
 namespace mlx90632 {
 
+// Import Adafruit MLX90632 enums into esphome::mlx90632 namespace
+using ::mlx90632_meas_select_t;
+using ::mlx90632_refresh_rate_t;
+using ::mlx90632_mode_t;
+
+// Import enum values
+static constexpr auto MLX90632_MEAS_MEDICAL = ::MLX90632_MEAS_MEDICAL;
+static constexpr auto MLX90632_MEAS_EXTENDED_RANGE = ::MLX90632_MEAS_EXTENDED_RANGE;
+static constexpr auto MLX90632_REFRESH_0_5HZ = ::MLX90632_REFRESH_0_5HZ;
+static constexpr auto MLX90632_REFRESH_1HZ = ::MLX90632_REFRESH_1HZ;
+static constexpr auto MLX90632_REFRESH_2HZ = ::MLX90632_REFRESH_2HZ;
+static constexpr auto MLX90632_REFRESH_4HZ = ::MLX90632_REFRESH_4HZ;
+static constexpr auto MLX90632_REFRESH_8HZ = ::MLX90632_REFRESH_8HZ;
+static constexpr auto MLX90632_REFRESH_16HZ = ::MLX90632_REFRESH_16HZ;
+static constexpr auto MLX90632_REFRESH_32HZ = ::MLX90632_REFRESH_32HZ;
+static constexpr auto MLX90632_REFRESH_64HZ = ::MLX90632_REFRESH_64HZ;
+static constexpr auto MLX90632_MODE_CONTINUOUS = ::MLX90632_MODE_CONTINUOUS;
+
 class MLX90632Component : public PollingComponent, public i2c::I2CDevice {
  public:
   void setup() override;
