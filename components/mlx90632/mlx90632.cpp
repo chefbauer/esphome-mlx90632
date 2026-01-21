@@ -89,8 +89,9 @@ void MLX90632Sensor::setup() {
   delay(200);  // Wait for reset to complete
   ESP_LOGI(TAG, "%s Addressed reset done", FW_VERSION);
   
-  // 2. Set HALT mode (00) with Medical range (0x00)
-  uint16_t ctrl_halt = 0x0000;  // Medical + HALT
+  // 2. Set HALT mode with correct MeasSel
+  uint16_t meas_sel = (measurement_mode_ == MEASUREMENT_MODE_EXTENDED) ? 0x11 : 0x00;
+  uint16_t ctrl_halt = (meas_sel << 4) | 0x0000;  // MeasSel + HALT
   if (!write_register16(REG_CONTROL, ctrl_halt)) {
     ESP_LOGE(TAG, "%s Failed to set HALT", FW_VERSION);
     this->mark_failed();
@@ -99,14 +100,14 @@ void MLX90632Sensor::setup() {
   delay(10);
   ESP_LOGI(TAG, "%s Set to HALT (0x%04X)", FW_VERSION, ctrl_halt);
   
-  // 3. Set Step mode (01) with Medical range (0x00)
-  uint16_t ctrl_value = 0x0001;  // Medical + Step
+  // 3. Set Step mode with correct MeasSel
+  uint16_t ctrl_value = (meas_sel << 4) | 0x0001;  // MeasSel + Step
   if (!write_register16(REG_CONTROL, ctrl_value)) {
-    ESP_LOGE(TAG, "%s Failed to set Medical Step", FW_VERSION);
+    ESP_LOGE(TAG, "%s Failed to set Step", FW_VERSION);
     this->mark_failed();
     return;
   }
-  ESP_LOGI(TAG, "%s Control set to 0x%04X (Medical Step)", FW_VERSION, ctrl_value);
+  ESP_LOGI(TAG, "%s Control set to 0x%04X (Step)", FW_VERSION, ctrl_value);
   
   // Read back to verify
   uint16_t ctrl_after_write;
