@@ -50,20 +50,41 @@ void MLX90632Sensor::setup() {
   
   // Check I2C address
   uint16_t addr_reg;
-  if (!read_register16(0x3000, &addr_reg)) {
+  if (!read_register16(0x24D5, &addr_reg)) {
     ESP_LOGE(TAG, "%s Failed to read I2C address register", FW_VERSION);
     this->mark_failed();
     return;
   }
   ESP_LOGI(TAG, "%s I2C Address register: 0x%04X", FW_VERSION, addr_reg);
   
+  // Reset sensor to ensure clean state
+  ESP_LOGI(TAG, "%s Resetting sensor...", FW_VERSION);
+  if (!write_register16(0x3005, 0x0006)) {  // Addressed reset
+    ESP_LOGE(TAG, "%s Failed to reset sensor", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  delay(200);  // Wait for reset to complete
+  
+  // Set to HALT mode first
+  if (!write_register16(0x24D4, 0x0000)) {  // HALT mode
+    ESP_LOGE(TAG, "%s Failed to set HALT mode", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  delay(10);
+  
   // Set to continuous mode for medical measurements
-  if (!write_register16(0x24D4, 0x0003)) {  // EE_CONTROL: Continuous mode
+  ESP_LOGI(TAG, "%s Setting continuous mode...", FW_VERSION);
+  if (!write_register16(0x24D4, 0x0003)) {  // EE_CONTROL: Medical Continuous mode
     ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
     this->mark_failed();
     return;
   }
-  ESP_LOGI(TAG, "%s Set to continuous mode", FW_VERSION);
+  ESP_LOGI(TAG, "%s Set to medical continuous mode", FW_VERSION);
+  
+  // Wait a bit for mode change
+  delay(100);
 }
 
 // Update: Read and publish temperature
