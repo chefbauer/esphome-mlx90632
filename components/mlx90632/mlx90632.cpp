@@ -4,9 +4,9 @@
 namespace esphome {
 namespace mlx90632 {
 
-static const char *TAG = "mlx90632.sensor";
+static const char *TAG = "mlx90632";
 
-void MLX90632Sensor::setup() {
+void MLX90632Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up MLX90632...");
   
   // Create I2C adapter
@@ -46,7 +46,7 @@ void MLX90632Sensor::setup() {
   ESP_LOGI(TAG, "Product ID: 0x%012" PRIx64, product_id);
 }
 
-void MLX90632Sensor::update() {
+void MLX90632Component::update() {
   if (this->is_failed()) {
     return;
   }
@@ -65,17 +65,31 @@ void MLX90632Sensor::update() {
   double object_temp = mlx90632_.getObjectTemperature();
   ESP_LOGD(TAG, "Object Temperature: %.2f°C", object_temp);
   
-  // Publish object temperature as the main sensor value
-  this->publish_state(object_temp);
+  // Publish ambient temperature if sensor is configured
+  if (ambient_temperature_sensor_ != nullptr) {
+    ambient_temperature_sensor_->publish_state(ambient_temp);
+  }
+  
+  // Publish object temperature if sensor is configured
+  if (object_temperature_sensor_ != nullptr) {
+    object_temperature_sensor_->publish_state(object_temp);
+  }
   
   // Reset new data flag for next measurement
   mlx90632_.resetNewData();
 }
 
-void MLX90632Sensor::dump_config() {
+void MLX90632Component::dump_config() {
   ESP_LOGCONFIG(TAG, "MLX90632 Temperature Sensor");
   LOG_I2C_DEVICE(this);
   LOG_UPDATE_INTERVAL(this);
+  
+  if (object_temperature_sensor_ != nullptr) {
+    LOG_SENSOR("  ", "Object Temperature", object_temperature_sensor_);
+  }
+  if (ambient_temperature_sensor_ != nullptr) {
+    LOG_SENSOR("  ", "Ambient Temperature", ambient_temperature_sensor_);
+  }
   
   if (this->is_failed()) {
     ESP_LOGE(TAG, "  Failed to initialize MLX90632");
