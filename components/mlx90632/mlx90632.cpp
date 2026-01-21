@@ -289,10 +289,21 @@ void MLX90632Sensor::update() {
     return;
   }
   
-  // Skip if component not ready yet
+  // If setup not ready, wait a few updates for I2C to initialize
   if (!this->is_ready()) {
-    ESP_LOGD(TAG, "%s Update called but component not ready yet - skipping", FW_VERSION);
-    return;
+    update_count_++;
+    if (update_count_ < 3) {
+      ESP_LOGD(TAG, "%s Waiting for setup (update #%d)", FW_VERSION, update_count_);
+      return;
+    }
+    // After 3 updates, force setup if not called yet
+    ESP_LOGW(TAG, "%s Setup was not called after %d updates, running it now", FW_VERSION, update_count_);
+    this->setup();
+    if (!this->is_ready()) {
+      ESP_LOGE(TAG, "%s Setup failed, skipping update", FW_VERSION);
+      return;
+    }
+    return;  // Skip this update, start measuring on next one
   }
   
   // DEBUG: Check control register
