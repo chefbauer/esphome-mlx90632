@@ -1,6 +1,7 @@
 #include "mlx90632.h"
 #include "esphome/core/log.h"
 
+
 namespace esphome {
 namespace mlx90632 {
 
