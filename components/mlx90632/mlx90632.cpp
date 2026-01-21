@@ -398,6 +398,12 @@ void MLX90632Sensor::update() {
   float object_temp = calculate_object_temperature();
   
   // Clear NewData flag so sensor can write new measurement!
+  // Read status again to get current value
+  uint16_t status;
+  if (!read_register16(REG_STATUS, &status)) {
+    ESP_LOGW(TAG, "%s Failed to read status for clearing", FW_VERSION);
+    return;
+  }
   uint16_t status_clear = status & ~STATUS_NEW_DATA;
   if (!write_register16(REG_STATUS, status_clear)) {
     ESP_LOGW(TAG, "%s Failed to clear NewData flag", FW_VERSION);
