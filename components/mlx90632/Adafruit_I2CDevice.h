@@ -13,18 +13,8 @@
 
 #define I2C_TIMEOUT_MS 1000
 
-// Include Wire.h if available (ESPHome includes this)
-#ifdef __has_include
-  #if __has_include(<Wire.h>)
-    #include <Wire.h>
-  #else
-    // Forward declaration for environments without Wire.h
-    class TwoWire;
-  #endif
-#else
-  // Forward declaration - TwoWire is provided by ESPHome/Arduino environment
-  class TwoWire;
-#endif
+// Forward declare I2CInterface
+class I2CInterface;
 class Adafruit_I2CDevice {
 public:
   /**
