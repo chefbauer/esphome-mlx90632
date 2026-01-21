@@ -18,8 +18,8 @@
 #ifndef _ADAFRUIT_MLX90632_H
 #define _ADAFRUIT_MLX90632_H
 
-#include <Adafruit_BusIO_Register.h>
-#include <Adafruit_I2CDevice.h>
+#include "Adafruit_BusIO_Register.h"
+#include "Adafruit_I2CDevice.h"
 
 // Platform-specific includes
 #ifdef ESP_IDF_VERSION
