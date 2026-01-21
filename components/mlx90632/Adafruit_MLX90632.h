@@ -234,6 +234,32 @@ class Adafruit_MLX90632 {
   // ESPHome integration: Set direct I2CDevice access for atomic transactions
   void set_esphome_i2c_device(esphome::i2c::I2CDevice *device);
 
+  // Calibration constants (public for logging/debugging)
+  double P_R; ///< P_R calibration constant
+  double P_G; ///< P_G calibration constant
+  double P_T; ///< P_T calibration constant
+  double P_O; ///< P_O calibration constant
+  double Aa;  ///< Aa calibration constant
+  double Ab;  ///< Ab calibration constant
+  double Ba;  ///< Ba calibration constant
+  double Bb;  ///< Bb calibration constant
+  double Ca;  ///< Ca calibration constant
+  double Cb;  ///< Cb calibration constant
+  double Da;  ///< Da calibration constant
+  double Db;  ///< Db calibration constant
+  double Ea;  ///< Ea calibration constant
+  double Eb;  ///< Eb calibration constant
+  double Fa;  ///< Fa calibration constant
+  double Fb;  ///< Fb calibration constant
+  double Ga;  ///< Ga calibration constant
+  double Gb;  ///< Gb calibration constant
+  double Ka;  ///< Ka calibration constant
+  int16_t Kb; ///< Kb calibration constant (16-bit signed)
+  double Ha;  ///< Ha calibration constant
+  double Hb;  ///< Hb calibration constant
+  double TO0; ///< Previous object temperature (starts at 25.0)
+  double TA0; ///< Previous ambient temperature (starts at 25.0)
+
  private:
   Adafruit_I2CDevice* i2c_dev; ///< Pointer to I2C bus interface
   uint16_t swapBytes(
@@ -260,32 +286,6 @@ class Adafruit_MLX90632 {
                                       int16_t ambient_new_raw, int16_t ambient_old_raw,
                                       double Ka, double Gb, double Ea, double Eb,
                                       double Ga, double Fa_half, double Fb, double Ha, double Hb);
-
-  // Calibration constants
-  double P_R; ///< P_R calibration constant
-  double P_G; ///< P_G calibration constant
-  double P_T; ///< P_T calibration constant
-  double P_O; ///< P_O calibration constant
-  double Aa;  ///< Aa calibration constant
-  double Ab;  ///< Ab calibration constant
-  double Ba;  ///< Ba calibration constant
-  double Bb;  ///< Bb calibration constant
-  double Ca;  ///< Ca calibration constant
-  double Cb;  ///< Cb calibration constant
-  double Da;  ///< Da calibration constant
-  double Db;  ///< Db calibration constant
-  double Ea;  ///< Ea calibration constant
-  double Eb;  ///< Eb calibration constant
-  double Fa;  ///< Fa calibration constant
-  double Fb;  ///< Fb calibration constant
-  double Ga;  ///< Ga calibration constant
-  double Gb;  ///< Gb calibration constant
-  double Ka;  ///< Ka calibration constant
-  int16_t Kb; ///< Kb calibration constant (16-bit signed)
-  double Ha;  ///< Ha calibration constant
-  double Hb;  ///< Hb calibration constant
-  double TO0; ///< Previous object temperature (starts at 25.0)
-  double TA0; ///< Previous ambient temperature (starts at 25.0)
 };
 
 #endif
