@@ -538,7 +538,7 @@ double Adafruit_MLX90632::preprocessObject(int16_t object_new_raw, int16_t objec
   double kKa = Ka / 1024.0;
   double VR_IR = object_old_raw + kKa * (ambient_new_raw / MLX90632_REF_3);
   return ((((object_new_raw + object_old_raw) / 2.0) / MLX90632_REF_12) / VR_IR) * 524288.0;
-
+}
 
 /*!
  *    @brief  Preprocess object (extended mode, Melexis algorithm)
