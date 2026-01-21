@@ -33,6 +33,7 @@ CONF_OBJECT_TEMPERATURE = "object_temperature"
 CONF_AMBIENT_TEMPERATURE = "ambient_temperature"
 CONF_MEASUREMENT_SELECT = "measurement_select"
 CONF_REFRESH_RATE = "refresh_rate"
+CONF_EMISSIVITY = "emissivity"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -54,6 +55,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_REFRESH_RATE, default="2hz"): cv.enum(
                 REFRESH_RATES, lower=True
             ),
+            cv.Optional(CONF_EMISSIVITY, default=1.0): cv.All(
+                cv.float_range(min=0.0, max=1.0)
+            ),
         }
     )
     .extend(cv.polling_component_schema("60s"))
@@ -69,6 +73,7 @@ async def to_code(config):
 
     cg.add(var.set_measurement_select(config[CONF_MEASUREMENT_SELECT]))
     cg.add(var.set_refresh_rate(config[CONF_REFRESH_RATE]))
+    cg.add(var.set_emissivity(config[CONF_EMISSIVITY]))
 
     if CONF_OBJECT_TEMPERATURE in config:
         sens = await sensor.new_sensor(config[CONF_OBJECT_TEMPERATURE])

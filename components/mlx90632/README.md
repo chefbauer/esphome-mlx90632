@@ -60,6 +60,7 @@ sensor:
     address: 0x3A                    # Optional (default: 0x3A)
     measurement_select: medical      # Optional: medical | extended_range
     refresh_rate: 2hz                # Optional: 0.5hz | 1hz | 2hz | 4hz | 8hz | 16hz | 32hz | 64hz
+    emissivity: 0.95                 # Optional (default: 1.0, range: 0.0 - 1.0)
     
     object_temperature:
       name: "Object Temperature"
@@ -86,6 +87,15 @@ i2c:
   - Available rates: `0.5hz` (2000ms), `1hz` (1000ms), `2hz` (500ms), `4hz` (250ms), 
     `8hz` (125ms), `16hz` (62ms), `32hz` (31ms), `64hz` (16ms)
   - **Note**: This is the sensor's internal measurement rate, independent of `update_interval`
+- **emissivity** (*Optional*, float): Software-based emissivity correction factor. Defaults to `1.0`.
+  - **Range**: 0.0 to 1.0
+  - **Description**: Emissivity corrects the temperature reading based on the material being measured
+  - **Examples**: 
+    - 1.0 = Perfect blackbody (default, for most materials)
+    - 0.95 = Most painted surfaces, non-metals
+    - 0.85-0.95 = Most common materials
+    - 0.6-0.8 = Reflective metals, polished surfaces
+    - 0.3-0.6 = Shiny metals, foil
 - **object_temperature** (*Optional*): The object (IR) temperature sensor. At least one temperature sensor must be configured.
   - **name** (*Optional*, string): The name of the object temperature sensor.
 - **ambient_temperature** (*Optional*): The ambient (reference) temperature sensor. At least one temperature sensor must be configured.

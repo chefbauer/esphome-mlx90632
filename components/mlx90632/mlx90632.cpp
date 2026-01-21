@@ -1,5 +1,6 @@
 #include "esphome/core/log.h"
 #include "mlx90632.h"
+#include <cmath>
 
 namespace esphome {
 namespace mlx90632 {
@@ -90,7 +91,14 @@ void MLX90632Component::update() {
   
   // Read object temperature
   double object_temp = mlx90632_.getObjectTemperature();
-  ESP_LOGD(TAG, "Object Temperature: %.2f°C", object_temp);
+  ESP_LOGD(TAG, "Object Temperature (raw): %.2f°C", object_temp);
+  
+  // Apply emissivity correction using Stefan-Boltzmann law
+  // Formula: T_corrected = (T_raw_K^4 / emissivity)^0.25 - 273.15
+  double T_abs_K = object_temp + 273.15;  // Convert to Kelvin
+  double T_corrected_K = pow(pow(T_abs_K, 4) / emissivity_, 0.25);
+  double object_temp_corrected = T_corrected_K - 273.15;  // Convert back to Celsius
+  ESP_LOGD(TAG, "Object Temperature (corrected, ε=%.2f): %.2f°C", emissivity_, object_temp_corrected);
   
   // Publish ambient temperature if sensor is configured
   if (ambient_temperature_sensor_ != nullptr) {
@@ -99,7 +107,7 @@ void MLX90632Component::update() {
   
   // Publish object temperature if sensor is configured
   if (object_temperature_sensor_ != nullptr) {
-    object_temperature_sensor_->publish_state(object_temp);
+    object_temperature_sensor_->publish_state(object_temp_corrected);
   }
   
   // Reset new data flag for next measurement
