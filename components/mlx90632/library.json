@@ -1,0 +1,32 @@
+{
+  "name": "MLX90632 ESPHome Component",
+  "version": "1.0.0",
+  "description": "Melexis MLX90632 Far Infrared Temperature Sensor for ESPHome",
+  "keywords": [
+    "esphome",
+    "mlx90632",
+    "infrared",
+    "temperature",
+    "sensor",
+    "melexis"
+  ],
+  "authors": [
+    {
+      "name": "chefbauer",
+      "url": "https://github.com/chefbauer"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chefbauer/esphome-mlx90632.git"
+  },
+  "dependencies": [
+    {
+      "name": "Adafruit BusIO",
+      "owner": "adafruit",
+      "version": "^1.14.1"
+    }
+  ],
+  "frameworks": "espidf, arduino",
+  "platforms": "espressif32, espressif8266"
+}

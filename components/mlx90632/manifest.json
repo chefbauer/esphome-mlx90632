@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "documentation": "https://github.com/chefbauer/esphome-mlx90632",
+  "dependencies": [
+    {
+      "type": "library",
+      "library": "adafruit/Adafruit BusIO",
+      "version": ">=1.14.1"
+    }
+  ],
+  "requirements": [
+    "i2c"
+  ]
+}

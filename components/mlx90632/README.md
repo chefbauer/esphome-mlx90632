@@ -14,8 +14,12 @@ This ESPHome component provides support for the Melexis MLX90632 Far Infrared Te
 
 ## Dependencies
 
-- [Adafruit BusIO](https://github.com/adafruit/Adafruit_BusIO)
-- [Adafruit MLX90632](https://github.com/adafruit/Adafruit_MLX90632)
+- **Adafruit BusIO** - Included directly in this component (Adafruit_I2CDevice.h, Adafruit_BusIO_Register.h)
+  - No external installation needed - self-contained
+
+### Installation
+
+Simply use this component as an external component in your ESPHome configuration. All dependencies are included within the component directory.
 
 ## How It Works
 

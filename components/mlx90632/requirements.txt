@@ -1,0 +1,11 @@
+# External C++ Libraries required for MLX90632 component
+# These are Arduino/Platformio libraries that get installed automatically
+
+# The component uses pre-integrated Adafruit library sources
+# Location: components/mlx90632/Adafruit_MLX90632.h/.cpp
+# 
+# At build time, platformio will handle including:
+# - Adafruit BusIO (for I2CDevice and Register abstractions)
+# - This is specified in manifest.json for ESPHome
+
+# Python dependencies (none for this component)
