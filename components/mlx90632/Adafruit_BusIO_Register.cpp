@@ -1,16 +1,11 @@
 /*!
  * @file Adafruit_BusIO_Register.cpp
  *
- * Register-based I2C Communication for both Arduino and ESP-IDF
+ * Register-based I2C Communication for ESP-IDF
  */
 
 #include "Adafruit_BusIO_Register.h"
 #include <string.h>
-
-#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
-  #include "esp_log.h"
-  static const char* TAG = "BusIO_Register";
-#endif
 
 /*!
  *    @brief  Instantiates a new Adafruit_BusIO_Register class

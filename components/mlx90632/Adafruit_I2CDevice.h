@@ -1,7 +1,7 @@
 /*!
  * @file Adafruit_I2CDevice.h
  *
- * Native I2C Device Implementation for both Arduino and ESP-IDF
+ * Native I2C Device Implementation for ESP-IDF with TwoWire compatibility
  */
 
 #ifndef _ADAFRUIT_I2CDEVICE_H
@@ -11,30 +11,18 @@
 #include <string.h>
 #include <stdbool.h>
 
-// Platform detection: check for ESP-IDF first (more specific)
-#if defined(ESP_IDF_VERSION) || defined(ESP_PLATFORM) || defined(CONFIG_IDF_TARGET)
-  // ESP-IDF platform
-  #define USING_ESP_IDF 1
-  #define I2C_TIMEOUT_MS 1000
-#else
-  // Arduino platform
-  #define USING_ESP_IDF 0
-  #include "Arduino.h"
-  #include <Wire.h>
-  #define I2C_TIMEOUT_MS 1000
-#endif
-
-#define I2C_DEBUG 0
+#define I2C_TIMEOUT_MS 1000
 
 /*!
- *    @brief  Class that defines an I2C device - Compatible with both Arduino and ESP-IDF
+ *    @brief  Class that defines an I2C device
+ *            Works with TwoWire (Arduino-compatible API used by ESPHome)
  */
 class Adafruit_I2CDevice {
 public:
   /**
    * @brief Constructor for Adafruit_I2CDevice
    * @param addr The I2C address of the device
-   * @param theWire Pointer to TwoWire object (Arduino) or can be NULL for ESP-IDF native
+   * @param theWire Pointer to TwoWire object (ESPHome compatible)
    */
   Adafruit_I2CDevice(uint8_t addr, void *theWire = nullptr);
   ~Adafruit_I2CDevice();
@@ -105,13 +93,8 @@ public:
 
 private:
   uint8_t _addr;
-  void *_wire;  // Can be TwoWire* (Arduino) or i2c_master_bus_handle_t (ESP-IDF)
+  void *_wire;  // TwoWire* (ESPHome I2C interface)
   bool _begun;
-
-#ifdef ESP_IDF_VERSION
-  // ESP-IDF specific
-  bool _is_esp_idf_native = false;
-#endif
 };
 
 #endif // _ADAFRUIT_I2CDEVICE_H
