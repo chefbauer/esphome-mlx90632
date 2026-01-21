@@ -333,10 +333,9 @@ uint32_t Adafruit_MLX90632::read32BitRegister(uint16_t lsw_addr) {
   uint16_t lsw = lsw_reg.read();
   uint16_t msw = msw_reg.read();
   
-  // FIXED: Bytes within each 16-bit word are already swapped by MSBFIRST
-  // But we need to check if LSW/MSW are in correct positions
-  // Try swapping LSW and MSW positions
-  return ((uint32_t)lsw << 16) | msw;  // SWAPPED: LSW in upper, MSW in lower
+  // MSBFIRST already handles byte order within each 16-bit word
+  // Combine MSW and LSW in correct order for 32-bit value
+  return ((uint32_t)msw << 16) | lsw;
 }
 
 /*!

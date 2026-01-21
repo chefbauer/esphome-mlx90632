@@ -4,7 +4,7 @@
 
 namespace esphome {
 namespace mlx90632 {
-
+#define FW_VERSION "V.18"  // Firmware version for debugging
 static const char *TAG = "mlx90632";
 
 void MLX90632Component::setup() {
@@ -80,9 +80,9 @@ void MLX90632Component::setup() {
 }
 
 void MLX90632Component::update() {
-  ESP_LOGD(TAG, "=== UPDATE CALLED ===");
+  ESP_LOGD(TAG, "%s === UPDATE CALLED ===", FW_VERSION);
   if (this->is_failed()) {
-    ESP_LOGD(TAG, "Component is failed, returning");
+    ESP_LOGD(TAG, "%s Component is failed, returning", FW_VERSION);
     return;
   }
   
@@ -108,21 +108,21 @@ void MLX90632Component::update() {
   
   uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
   
-  ESP_LOGD(TAG, "[RAW-EEPROM] P_R: LSW=0x%04X MSW=0x%04X -> 0x%08X | Gb=0x%04X Ka=0x%04X", 
-           p_r_lsw, p_r_msw, ee_p_r, gb, ka);
+  ESP_LOGD(TAG, "%s [RAW-EEPROM] P_R: LSW=0x%04X MSW=0x%04X -> 0x%08X | Gb=0x%04X Ka=0x%04X", 
+           FW_VERSION, p_r_lsw, p_r_msw, ee_p_r, gb, ka);
   
   // Log calibration data at every update
-  ESP_LOGD(TAG, "Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
-           mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
+  ESP_LOGD(TAG, "%s Calibration: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
+           FW_VERSION, mlx90632_.P_R, mlx90632_.P_G, mlx90632_.Aa, mlx90632_.Ba, 
            mlx90632_.Ga, mlx90632_.Gb, mlx90632_.Ka);
   
   // Check if new data is available
   if (!mlx90632_.isNewData()) {
-    ESP_LOGD(TAG, "No new data available yet");
+    ESP_LOGD(TAG, "%s No new data available yet", FW_VERSION);
     return;
   }
   
-  ESP_LOGD(TAG, "New data available! Reading temperatures...");
+  ESP_LOGD(TAG, "%s New data available! Reading temperatures...", FW_VERSION);
   
   // Log RAM register values (Extended range mode)
   uint16_t ram_52 = 0, ram_53 = 0, ram_54 = 0, ram_55 = 0, ram_56 = 0, ram_57 = 0;
@@ -134,17 +134,17 @@ void MLX90632Component::update() {
   read_reg(0x4009, &ram_56);  // RAM_56 - Ambient old
   read_reg(0x400A, &ram_57);  // RAM_57 - Ambient ref
   
-  ESP_LOGD(TAG, "[AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", ram_54, ram_57);
-  ESP_LOGD(TAG, "[OBJ-EXT] RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_55=0x%04X RAM_56=0x%04X", 
-           ram_52, ram_53, ram_54, ram_55, ram_56);
+  ESP_LOGD(TAG, "%s [AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", FW_VERSION, ram_54, ram_57);
+  ESP_LOGD(TAG, "%s [OBJ-EXT] RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_55=0x%04X RAM_56=0x%04X", 
+           FW_VERSION, ram_52, ram_53, ram_54, ram_55, ram_56);
   
   // Read ambient temperature
   double ambient_temp = mlx90632_.getAmbientTemperature();
-  ESP_LOGD(TAG, "Ambient temp read: %.2f°C", ambient_temp);
+  ESP_LOGD(TAG, "%s Ambient temp read: %.2f°C", FW_VERSION, ambient_temp);
   
   // Read object temperature
   double object_temp = mlx90632_.getObjectTemperature();
-  ESP_LOGD(TAG, "Object temp read: %.2f°C", object_temp);
+  ESP_LOGD(TAG, "%s Object temp read: %.2f°C", FW_VERSION, object_temp);
   
   // Publish ambient temperature if sensor is configured
   if (ambient_temperature_sensor_ != nullptr) {
