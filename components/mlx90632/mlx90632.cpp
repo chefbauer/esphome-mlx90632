@@ -291,6 +291,14 @@ void MLX90632Component::update() {
     return;
   }
   
+  // DEBUG: Log calibration values (only in update, not setup)
+  ESP_LOGD(TAG, "%s Cal RAW 32-bit: P_R=0x%08X P_G=0x%08X P_O=0x%08X",
+           FW_VERSION, (uint32_t)(P_R * 256), (uint32_t)(P_G * 1048576), (uint32_t)(P_O * 256));
+  ESP_LOGD(TAG, "%s Cal RAW 16-bit: Gb=0x%04X Ka=0x%04X",
+           FW_VERSION, (uint16_t)(Gb * 1024), (uint16_t)(Ka * 256));
+  ESP_LOGD(TAG, "%s Cal: P_R=%.6f P_G=%.9f Aa=%.6f Ba=%.9f Ga=%.9f Gb=%.6f Ka=%.6f",
+           FW_VERSION, P_R, P_G, Aa, Ba, Ga, Gb, Ka);
+  
   // Read status register
   uint16_t status;
   if (read_register16(REG_STATUS, &status)) {
