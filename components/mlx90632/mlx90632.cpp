@@ -4,7 +4,7 @@
 
 namespace esphome {
 namespace mlx90632 {
-#define FW_VERSION "V.18"  // Firmware version for debugging
+#define FW_VERSION "V.19"  // Firmware version for debugging
 static const char *TAG = "mlx90632";
 
 void MLX90632Component::setup() {

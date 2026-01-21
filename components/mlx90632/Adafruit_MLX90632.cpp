@@ -326,15 +326,13 @@ mlx90632_refresh_rate_t Adafruit_MLX90632::getRefreshRate() {
  */
 uint32_t Adafruit_MLX90632::read32BitRegister(uint16_t lsw_addr) {
   Adafruit_BusIO_Register lsw_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(lsw_addr), 2, MSBFIRST, 2);
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(lsw_addr), 2, LSBFIRST, 2);
   Adafruit_BusIO_Register msw_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(lsw_addr + 1), 2, MSBFIRST, 2);
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(lsw_addr + 1), 2, LSBFIRST, 2);
 
   uint16_t lsw = lsw_reg.read();
   uint16_t msw = msw_reg.read();
   
-  // MSBFIRST already handles byte order within each 16-bit word
-  // Combine MSW and LSW in correct order for 32-bit value
   return ((uint32_t)msw << 16) | lsw;
 }
 
