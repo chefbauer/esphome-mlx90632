@@ -33,32 +33,27 @@ bool MLX90632Sensor::write_register16(uint16_t reg, uint16_t value) {
   return true;
 }
 
-// Calculate temperature using Melexis DSPv5 algorithm (simplified)
-float MLX90632Sensor::calculate_temperature(uint16_t raw_obj, uint16_t raw_amb) {
-  // MLX90632 Medical Mode temperature calculation
-  // Based on Melexis mlx90632.c DSPv5 algorithm
+// Calculate temperatures (simplified for now - MLX90632 uses complex DSPv5)
+float MLX90632Sensor::calculate_object_temperature(uint16_t raw_obj, uint16_t raw_amb) {
+  // For MLX90632, raw values are 16-bit signed integers representing temperature in 0.01°C units
+  // But the actual conversion is complex. For basic functionality:
   
   int16_t obj = (int16_t)raw_obj;
   int16_t amb = (int16_t)raw_amb;
   
-  // Step 1: Calculate ambient temperature (simplified)
-  // T_ambient = P_O + P_R * (amb - P_T) + P_G * (amb - P_T)^2
-  // Using placeholder values since we don't have all constants loaded
-  float T_ambient = 25.0f + (amb - 2500) / 100.0f;  // Rough estimate
+  // Simple conversion: values around 20000-25000 represent ~20-25°C
+  // MLX90632 raw values need calibration, but for basic reading:
+  float temp_obj = 25.0f + (obj - 22500) / 100.0f;
+  float temp_amb = 25.0f + (amb - 22500) / 100.0f;
   
-  // Step 2: Calculate object temperature using emissivity compensation
-  // T_object = T_ambient + (obj - amb) / emissivity_factor
-  // For medical applications, emissivity is typically 0.97-0.98
-  float emissivity = 0.97f;
-  float delta_T = (obj - amb) / (emissivity * 50.0f);  // Rough compensation
-  
-  float T_object = T_ambient + delta_T;
-  
-  // Clamp to medical range
-  if (T_object < 30.0f) T_object = 30.0f;
-  if (T_object > 45.0f) T_object = 45.0f;
-  
-  return T_object;
+  // For medical mode, object temp should be close to ambient
+  // Remove the clamping for now to see actual values
+  return temp_obj;
+}
+
+float MLX90632Sensor::calculate_ambient_temperature(uint16_t raw_amb) {
+  int16_t amb = (int16_t)raw_amb;
+  return 25.0f + (amb - 22500) / 100.0f;
 }
 
 // Setup: Initialize sensor
@@ -155,10 +150,12 @@ void MLX90632Sensor::update() {
   ESP_LOGD(TAG, "%s RAM_EXT: 52=0x%04X 53=0x%04X 54=0x%04X 55=0x%04X 56=0x%04X 57=0x%04X 58=0x%04X 59=0x%04X 60=0x%04X", 
            FW_VERSION, ext52, ext53, ext54, ext55, ext56, ext57, ext58, ext59, ext60);
   
-  float tobj_c = calculate_temperature(med6, med9);  // Use medical mode RAM_6 (obj) and RAM_9 (amb)
-  ESP_LOGI(TAG, "%s Object temperature: %.2f°C (raw_obj: 0x%04X, raw_amb: 0x%04X)", FW_VERSION, tobj_c, med6, med9);
+  float tobj_c = calculate_object_temperature(med6, med9);  // Use medical mode RAM_6 (obj) and RAM_9 (amb)
+  float tamb_c = calculate_ambient_temperature(med9);       // Use medical mode RAM_9 (amb)
+  ESP_LOGI(TAG, "%s Temperatures: Object=%.2f°C (0x%04X), Ambient=%.2f°C (0x%04X)", 
+           FW_VERSION, tobj_c, med6, tamb_c, med9);
   
-  // Publish
+  // Publish object temperature
   this->publish_state(tobj_c);
 }
 
