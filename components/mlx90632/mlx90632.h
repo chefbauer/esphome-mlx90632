@@ -38,6 +38,8 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   void set_measurement_mode(MeasurementMode mode) { measurement_mode_ = mode; }
   void set_refresh_rate(RefreshRate rate) { refresh_rate_ = rate; }
   void set_emissivity(float emissivity) { emissivity_ = emissivity; }
+  
+  bool is_ready() const { return setup_complete_; }
 
  protected:
   // I2C read/write helpers

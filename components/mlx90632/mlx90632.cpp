@@ -49,6 +49,7 @@ bool MLX90632Sensor::write_register16(uint16_t reg, uint16_t value) {
 
 // Setup: Initialize sensor
 void MLX90632Sensor::setup() {
+  ESP_LOGE(TAG, "%s ========== SETUP() CALLED ==========", FW_VERSION);
   ESP_LOGI(TAG, "%s Setting up MLX90632...", FW_VERSION);
   
   // Read product ID
@@ -107,7 +108,8 @@ void MLX90632Sensor::setup() {
     }
   });
   
-  ESP_LOGI(TAG, "%s MLX90632 initialized successfully", FW_VERSION);
+  setup_complete_ = true;
+  ESP_LOGI(TAG, "%s Setup complete - now allowing updates", FW_VERSION);
 }
 
 // Read calibration constants from EEPROM
@@ -287,41 +289,10 @@ void MLX90632Sensor::update() {
     return;
   }
   
-  // Run setup logic in first update if not done
-  if (!setup_complete_) {
-    ESP_LOGI(TAG, "%s Running setup in first update...", FW_VERSION);
-    
-    // Read product ID
-    uint16_t id0, id1, id2;
-    if (!read_register16(EE_ID0, &id0) || 
-        !read_register16(EE_ID1, &id1) || 
-        !read_register16(EE_ID2, &id2)) {
-      ESP_LOGE(TAG, "%s Failed to read product ID", FW_VERSION);
-      this->mark_failed();
-      return;
-    }
-    
-    uint64_t product_id = ((uint64_t)id0 << 32) | ((uint64_t)id1 << 16) | id2;
-    ESP_LOGI(TAG, "%s Product ID: 0x%012llX", FW_VERSION, product_id);
-    
-    // Read calibration from EEPROM
-    if (!read_calibration()) {
-      ESP_LOGE(TAG, "%s Failed to read calibration", FW_VERSION);
-      this->mark_failed();
-      return;
-    }
-    
-    // Wake sensor and set continuous measurement mode with SOB
-    uint16_t ctrl_value = CTRL_MODE_CONTINUOUS | CTRL_SOB;
-    if (!write_register16(REG_CONTROL, ctrl_value)) {
-      ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
-      this->mark_failed();
-      return;
-    }
-    
-    ESP_LOGI(TAG, "%s Setup complete!", FW_VERSION);
-    setup_complete_ = true;
-    return; // Skip first measurement, let sensor settle
+  // Skip if component not ready yet
+  if (!this->is_ready()) {
+    ESP_LOGD(TAG, "%s Update called but component not ready yet - skipping", FW_VERSION);
+    return;
   }
   
   // DEBUG: Check control register
