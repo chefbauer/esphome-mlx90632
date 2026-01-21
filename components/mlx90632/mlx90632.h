@@ -68,6 +68,7 @@ class MLX90632Sensor : public sensor::Sensor, public PollingComponent, public i2
   float emissivity_{1.0};
   bool setup_complete_{false};
   uint8_t update_count_{0};  // Count updates before forcing setup
+  uint32_t setup_time_{0};   // millis() when setup completed
 };
 
 }  // namespace mlx90632

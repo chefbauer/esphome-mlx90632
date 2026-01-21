@@ -110,7 +110,8 @@ void MLX90632Sensor::setup() {
   });
   
   setup_complete_ = true;
-  ESP_LOGI(TAG, "%s Setup complete - now allowing updates", FW_VERSION);
+  setup_time_ = millis();
+  ESP_LOGI(TAG, "%s === Setup complete at %.3fs ===\", FW_VERSION, setup_time_ / 1000.0);
 }
 
 // Read calibration constants from EEPROM
@@ -301,8 +302,9 @@ float MLX90632Sensor::calculate_object_temperature() {
 // Update: Read and publish temperatures
 void MLX90632Sensor::update() {
   uint32_t now = millis();
-  ESP_LOGI(TAG, "%s === UPDATE #%d === (millis=%lu, P_R=%.2f)", 
-           FW_VERSION, update_count_++, now, P_R);
+  float setup_seconds = setup_time_ / 1000.0;
+  ESP_LOGI(TAG, "%s === UPDATE #%d === (Setup: %.3fs, P_R=%.2f)", 
+           FW_VERSION, update_count_++, setup_seconds, P_R);
   
   // Don't run before 2 seconds after boot
   if (now < 2000) {
@@ -321,29 +323,12 @@ void MLX90632Sensor::update() {
     return;
   }
   
-  ESP_LOGD(TAG, "%s Starting measurement cycle...", FW_VERSION);
+  ESP_LOGD(TAG, "%s Starting measurement cycle (continuous mode)...", FW_VERSION);
   
-  // Trigger new measurement burst
-  uint16_t control = CTRL_MODE_CONTINUOUS | CTRL_SOB;
-  if (!write_register16(REG_CONTROL, control)) {
-    ESP_LOGE(TAG, "%s Failed to trigger SOB!", FW_VERSION);
-    return;
-  }
-  ESP_LOGVV(TAG, "%s SOB triggered, waiting for data...", FW_VERSION);
-  
-  // Wait for new data (max 100ms)
-  bool data_ready = false;
-  for (int i = 0; i < 20; i++) {
-    delay(5);
-    if (check_new_data()) {
-      data_ready = true;
-      ESP_LOGVV(TAG, "%s Data ready after %d x 5ms", FW_VERSION, i+1);
-      break;
-    }
-  }
-  
-  if (!data_ready) {
-    ESP_LOGW(TAG, "%s Timeout waiting for new data!", FW_VERSION);
+  // In continuous mode: Just check if new data is available
+  // (Sensor runs continuously after setup, no need to trigger SOB every time!)
+  if (!check_new_data()) {
+    ESP_LOGW(TAG, "%s No new data available yet", FW_VERSION);
     return;
   }
   
