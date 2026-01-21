@@ -90,3 +90,49 @@ i2c:
   - **name** (*Optional*, string): The name of the object temperature sensor.
 - **ambient_temperature** (*Optional*): The ambient (reference) temperature sensor. At least one temperature sensor must be configured.
   - **name** (*Optional*, string): The name of the ambient temperature sensor.
+
+## Using as External Component
+
+Add this to your ESPHome configuration to use this component:
+
+```yaml
+external_components:
+  - source: github://chefbauer/esphome-mlx90632@main
+    components: [mlx90632]
+
+sensor:
+  - platform: mlx90632
+    name: "IR Temperature"
+    update_interval: 30s
+    object_temperature:
+      name: "Object Temperature"
+    ambient_temperature:
+      name: "Ambient Temperature"
+
+i2c:
+  sda: 4
+  scl: 5
+```
+
+## Als External Component verwenden
+
+Füge dies zu deiner ESPHome-Konfiguration hinzu:
+
+```yaml
+external_components:
+  - source: github://chefbauer/esphome-mlx90632@main
+    components: [mlx90632]
+
+sensor:
+  - platform: mlx90632
+    name: "IR-Temperatur"
+    update_interval: 30s
+    object_temperature:
+      name: "Objekttemperatur"
+    ambient_temperature:
+      name: "Umgebungstemperatur"
+
+i2c:
+  sda: 4
+  scl: 5
+```
