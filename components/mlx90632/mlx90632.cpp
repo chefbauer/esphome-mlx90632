@@ -56,6 +56,14 @@ void MLX90632Sensor::setup() {
     return;
   }
   ESP_LOGI(TAG, "%s I2C Address register: 0x%04X", FW_VERSION, addr_reg);
+  
+  // Set to continuous mode for medical measurements
+  if (!write_register16(0x3001, 0x0003)) {  // Continuous mode
+    ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+  ESP_LOGI(TAG, "%s Set to continuous mode", FW_VERSION);
 }
 
 // Update: Read and publish temperature
@@ -63,19 +71,27 @@ void MLX90632Sensor::update() {
   ESP_LOGD(TAG, "%s Reading temperature...", FW_VERSION);
   
   // Read all relevant registers for debugging
-  uint16_t addr, ctrl, status, rate, tobj, tamb;
+  uint16_t addr, ctrl, rate, status;
+  uint16_t ram3, ram4, ram5, ram6, ram7, ram8, ram9;
   read_register16(0x3000, &addr);
   read_register16(0x3001, &ctrl);
   read_register16(0x3002, &rate);
   read_register16(0x3004, &status);
-  read_register16(0x03, &tobj);
-  read_register16(0x07, &tamb);
+  read_register16(0x03, &ram3);
+  read_register16(0x04, &ram4);
+  read_register16(0x05, &ram5);
+  read_register16(0x06, &ram6);
+  read_register16(0x07, &ram7);
+  read_register16(0x08, &ram8);
+  read_register16(0x09, &ram9);
   
-  ESP_LOGD(TAG, "%s REG: addr=0x%04X ctrl=0x%04X rate=0x%04X status=0x%04X tobj=0x%04X tamb=0x%04X", 
-           FW_VERSION, addr, ctrl, rate, status, tobj, tamb);
+  ESP_LOGD(TAG, "%s EEPROM: addr=0x%04X ctrl=0x%04X rate=0x%04X status=0x%04X", 
+           FW_VERSION, addr, ctrl, rate, status);
+  ESP_LOGD(TAG, "%s RAM: 03=0x%04X 04=0x%04X 05=0x%04X 06=0x%04X 07=0x%04X 08=0x%04X 09=0x%04X", 
+           FW_VERSION, ram3, ram4, ram5, ram6, ram7, ram8, ram9);
   
-  float tobj_c = calculate_temperature(tobj);
-  ESP_LOGI(TAG, "%s Object temperature: %.2f°C (raw: 0x%04X)", FW_VERSION, tobj_c, tobj);
+  float tobj_c = calculate_temperature(ram6);  // Use RAM_6 for medical mode
+  ESP_LOGI(TAG, "%s Object temperature: %.2f°C (raw: 0x%04X)", FW_VERSION, tobj_c, ram6);
   
   // Publish
   this->publish_state(tobj_c);
