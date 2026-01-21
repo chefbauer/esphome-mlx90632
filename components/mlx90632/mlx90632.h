@@ -10,7 +10,7 @@ namespace esphome {
 namespace mlx90632 {
 
 static const char *const TAG = "mlx90632";
-static const char *const FW_VERSION = "V.N3";
+static const char *const FW_VERSION = "V.N4-EEPROM";
 
 enum MeasurementMode {
   MEASUREMENT_MODE_MEDICAL = 0,

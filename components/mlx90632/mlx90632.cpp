@@ -116,35 +116,72 @@ void MLX90632Sensor::setup() {
 bool MLX90632Sensor::read_calibration() {
   ESP_LOGD(TAG, "%s Reading calibration from EEPROM...", FW_VERSION);
   
-  // Read 32-bit constants
+  // Wait for EEPROM to be ready
+  uint16_t status;
+  for (int i = 0; i < 10; i++) {
+    if (!read_register16(REG_STATUS, &status)) return false;
+    if ((status & STATUS_EEPROM_BUSY) == 0) break;
+    ESP_LOGD(TAG, "%s EEPROM busy, waiting... (attempt %d/10)", FW_VERSION, i+1);
+    delay(10);
+  }
+  
+  if ((status & STATUS_EEPROM_BUSY) != 0) {
+    ESP_LOGE(TAG, "%s EEPROM still busy after 100ms!", FW_VERSION);
+    return false;
+  }
+  
+  ESP_LOGD(TAG, "%s EEPROM ready, starting reads...", FW_VERSION);
+  
+  // Read 32-bit constants WITH DELAYS BETWEEN READS
   uint32_t ee_p_r, ee_p_g, ee_p_t, ee_p_o;
   uint32_t ee_aa, ee_ab, ee_ba, ee_bb, ee_ca, ee_cb, ee_da, ee_db;
   uint32_t ee_ea, ee_eb, ee_fa, ee_fb, ee_ga;
   
   if (!read_register32(EE_P_R_LSW, &ee_p_r)) return false;
+  delay(5);  // EEPROM delay
   if (!read_register32(EE_P_G_LSW, &ee_p_g)) return false;
+  delay(5);
   if (!read_register32(EE_P_T_LSW, &ee_p_t)) return false;
+  delay(5);
   if (!read_register32(EE_P_O_LSW, &ee_p_o)) return false;
+  delay(5);
   if (!read_register32(EE_AA_LSW, &ee_aa)) return false;
+  delay(5);
   if (!read_register32(EE_AB_LSW, &ee_ab)) return false;
+  delay(5);
   if (!read_register32(EE_BA_LSW, &ee_ba)) return false;
+  delay(5);
   if (!read_register32(EE_BB_LSW, &ee_bb)) return false;
+  delay(5);
   if (!read_register32(EE_CA_LSW, &ee_ca)) return false;
+  delay(5);
   if (!read_register32(EE_CB_LSW, &ee_cb)) return false;
+  delay(5);
   if (!read_register32(EE_DA_LSW, &ee_da)) return false;
+  delay(5);
   if (!read_register32(EE_DB_LSW, &ee_db)) return false;
+  delay(5);
   if (!read_register32(EE_EA_LSW, &ee_ea)) return false;
+  delay(5);
   if (!read_register32(EE_EB_LSW, &ee_eb)) return false;
+  delay(5);
   if (!read_register32(EE_FA_LSW, &ee_fa)) return false;
+  delay(5);
   if (!read_register32(EE_FB_LSW, &ee_fb)) return false;
+  delay(5);
   if (!read_register32(EE_GA_LSW, &ee_ga)) return false;
+  delay(5);
   
-  // Read 16-bit constants
+  // Read 16-bit constants WITH DELAYS
   uint16_t ee_gb, ee_ka, ee_kb, ee_ha, ee_hb;
   if (!read_register16(EE_GB, &ee_gb)) return false;
+  delay(5);
   if (!read_register16(EE_KA, &ee_ka)) return false;
+  delay(5);
   if (!read_register16(EE_KB, &ee_kb)) return false;
+  delay(5);
   if (!read_register16(EE_HA, &ee_ha)) return false;
+  delay(5);
   if (!read_register16(EE_HB, &ee_hb)) return false;
   
   // Convert to calibration constants with scale factors
