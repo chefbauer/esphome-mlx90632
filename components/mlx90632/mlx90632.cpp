@@ -90,7 +90,7 @@ void MLX90632Component::update() {
   
   // Log raw EEPROM values once to diagnose calibration issue
   if (!raw_eeprom_logged) {
-    // Read raw EEPROM registers using I2C directly
+    // Read raw EEPROM registers using I2C write_read (16-bit addresses, big-endian)
     uint16_t p_r_lsw = 0, p_r_msw = 0;
     uint16_t p_g_lsw = 0, p_g_msw = 0;
     uint16_t aa_lsw = 0, aa_msw = 0;
@@ -98,25 +98,36 @@ void MLX90632Component::update() {
     uint16_t ga_lsw = 0, ga_msw = 0;
     uint16_t gb = 0, ka = 0;
     
+    // Helper lambda to read 16-bit register with 16-bit address
+    auto read_reg = [this](uint16_t addr, uint16_t *value) {
+      uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
+      uint8_t data_buf[2] = {0};
+      if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
+        *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
+        return true;
+      }
+      return false;
+    };
+    
     // P_R at 0x243D (LSW) and 0x243E (MSW)
-    this->read_register16(0x243D, &p_r_lsw, 1);
-    this->read_register16(0x243E, &p_r_msw, 1);
+    read_reg(0x243D, &p_r_lsw);
+    read_reg(0x243E, &p_r_msw);
     // P_G at 0x243F (LSW) and 0x2440 (MSW)
-    this->read_register16(0x243F, &p_g_lsw, 1);
-    this->read_register16(0x2440, &p_g_msw, 1);
+    read_reg(0x243F, &p_g_lsw);
+    read_reg(0x2440, &p_g_msw);
     // Aa at 0x2441 (LSW) and 0x2442 (MSW)
-    this->read_register16(0x2441, &aa_lsw, 1);
-    this->read_register16(0x2442, &aa_msw, 1);
+    read_reg(0x2441, &aa_lsw);
+    read_reg(0x2442, &aa_msw);
     // Ba at 0x2443 (LSW) and 0x2444 (MSW)
-    this->read_register16(0x2443, &ba_lsw, 1);
-    this->read_register16(0x2444, &ba_msw, 1);
+    read_reg(0x2443, &ba_lsw);
+    read_reg(0x2444, &ba_msw);
     // Ga at 0x2453 (LSW) and 0x2454 (MSW)
-    this->read_register16(0x2453, &ga_lsw, 1);
-    this->read_register16(0x2454, &ga_msw, 1);
+    read_reg(0x2453, &ga_lsw);
+    read_reg(0x2454, &ga_msw);
     // Gb at 0x2455
-    this->read_register16(0x2455, &gb, 1);
+    read_reg(0x2455, &gb);
     // Ka at 0x2456
-    this->read_register16(0x2456, &ka, 1);
+    read_reg(0x2456, &ka);
     
     uint32_t ee_p_r = ((uint32_t)p_r_msw << 16) | p_r_lsw;
     uint32_t ee_p_g = ((uint32_t)p_g_msw << 16) | p_g_lsw;
@@ -148,12 +159,24 @@ void MLX90632Component::update() {
   
   // Log RAM register values (Extended range mode)
   uint16_t ram_52 = 0, ram_53 = 0, ram_54 = 0, ram_55 = 0, ram_56 = 0, ram_57 = 0;
-  this->read_register16(0x4005, &ram_52, 1);  // RAM_52 - Object new
-  this->read_register16(0x4006, &ram_53, 1);  // RAM_53 - Object old
-  this->read_register16(0x4007, &ram_54, 1);  // RAM_54 - Ambient new
-  this->read_register16(0x4008, &ram_55, 1);  // RAM_55 - Ambient new/old
-  this->read_register16(0x4009, &ram_56, 1);  // RAM_56 - Ambient old
-  this->read_register16(0x400A, &ram_57, 1);  // RAM_57 - Ambient ref
+  
+  // Helper lambda to read 16-bit register with 16-bit address
+  auto read_reg = [this](uint16_t addr, uint16_t *value) {
+    uint8_t addr_buf[2] = {(uint8_t)(addr >> 8), (uint8_t)(addr & 0xFF)};  // Big-endian
+    uint8_t data_buf[2] = {0};
+    if (this->write_read(addr_buf, 2, data_buf, 2) == esphome::i2c::ERROR_OK) {
+      *value = (data_buf[0] << 8) | data_buf[1];  // Big-endian
+      return true;
+    }
+    return false;
+  };
+  
+  read_reg(0x4005, &ram_52);  // RAM_52 - Object new
+  read_reg(0x4006, &ram_53);  // RAM_53 - Object old
+  read_reg(0x4007, &ram_54);  // RAM_54 - Ambient new
+  read_reg(0x4008, &ram_55);  // RAM_55 - Ambient new/old
+  read_reg(0x4009, &ram_56);  // RAM_56 - Ambient old
+  read_reg(0x400A, &ram_57);  // RAM_57 - Ambient ref
   
   ESP_LOGD(TAG, "[AMB-EXT] RAM_54=0x%04X RAM_57=0x%04X", ram_54, ram_57);
   ESP_LOGD(TAG, "[OBJ-EXT] RAM_52=0x%04X RAM_53=0x%04X RAM_54=0x%04X RAM_55=0x%04X RAM_56=0x%04X", 
