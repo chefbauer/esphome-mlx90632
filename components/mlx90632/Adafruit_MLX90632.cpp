@@ -333,15 +333,10 @@ uint32_t Adafruit_MLX90632::read32BitRegister(uint16_t lsw_addr) {
   uint16_t lsw = lsw_reg.read();
   uint16_t msw = msw_reg.read();
   
-  // Debug: log the raw register reads for first call
-  static bool first_call = true;
-  if (first_call) {
-    ESP_LOGD("MLX90632", "[32BIT-READ] Addr=0x%04X: LSW=0x%04X MSW=0x%04X -> Combined=0x%08X",
-             lsw_addr, lsw, msw, ((uint32_t)msw << 16) | lsw);
-    first_call = false;
-  }
-
-  return ((uint32_t)msw << 16) | lsw;
+  // FIXED: Bytes within each 16-bit word are already swapped by MSBFIRST
+  // But we need to check if LSW/MSW are in correct positions
+  // Try swapping LSW and MSW positions
+  return ((uint32_t)lsw << 16) | msw;  // SWAPPED: LSW in upper, MSW in lower
 }
 
 /*!
