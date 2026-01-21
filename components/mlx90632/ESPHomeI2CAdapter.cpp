@@ -13,7 +13,8 @@ uint8_t ESPHomeI2CAdapter::endTransmission(uint8_t sendStop) {
     return 1;  // Error
   }
   
-  auto err = bus_->writev(tx_addr_, tx_buf_, tx_len_, nullptr, 0);
+  // Use ESPHome's write method with correct API
+  auto err = bus_->write(tx_addr_, tx_buf_, tx_len_);
   tx_len_ = 0;
   
   if (err == esphome::i2c::ERROR_OK) {
@@ -54,7 +55,8 @@ uint8_t ESPHomeI2CAdapter::requestFrom(uint8_t addr, uint8_t quantity) {
     quantity = sizeof(rx_buf_);
   }
   
-  auto err = bus_->readv(addr, nullptr, 0, rx_buf_, quantity);
+  // Use ESPHome's read method with correct API
+  auto err = bus_->read(addr, rx_buf_, quantity);
   
   if (err == esphome::i2c::ERROR_OK) {
     rx_len_ = quantity;
