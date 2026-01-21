@@ -133,6 +133,19 @@ bool MLX90632Sensor::read_calibration() {
   
   ESP_LOGD(TAG, "%s EEPROM ready, starting reads...", FW_VERSION);
   
+  // DIAGNOSTIC: Scan EEPROM area to find where data actually is
+  ESP_LOGI(TAG, "%s === EEPROM DIAGNOSTIC SCAN ===", FW_VERSION);
+  for (uint16_t addr = 0x2400; addr <= 0x2490; addr += 2) {
+    uint16_t val;
+    if (read_register16(addr, &val)) {
+      if (val != 0x0000 && val != 0xFFFF) {
+        ESP_LOGI(TAG, "%s [0x%04X] = 0x%04X (%d)", FW_VERSION, addr, val, (int16_t)val);
+      }
+    }
+    delay(2);
+  }
+  ESP_LOGI(TAG, "%s === END DIAGNOSTIC ===", FW_VERSION);
+  
   // Read 32-bit constants WITH DELAYS BETWEEN READS
   uint32_t ee_p_r, ee_p_g, ee_p_t, ee_p_o;
   uint32_t ee_aa, ee_ab, ee_ba, ee_bb, ee_ca, ee_cb, ee_da, ee_db;
