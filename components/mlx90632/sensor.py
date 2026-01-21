@@ -45,7 +45,7 @@ CONFIG_SCHEMA = cv.All(
     .extend(cv.polling_component_schema("2s"))
     .extend(
         {
-            cv.Optional("measurement_select", default="extended_range"): cv.enum(
+            cv.Optional("measurement_select", default="medical"): cv.enum(
                 MEASUREMENT_MODES, lower=True
             ),
             cv.Optional("refresh_rate", default="2hz"): cv.enum(
