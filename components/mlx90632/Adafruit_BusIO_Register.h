@@ -16,8 +16,13 @@
 // Byte order constants
 #define LSBFIRST 0
 #define MSBFIRST 1
+// Use system definitions if available
+#ifndef LITTLE_ENDIAN
 #define LITTLE_ENDIAN 0
+#endif
+#ifndef BIG_ENDIAN
 #define BIG_ENDIAN 1
+#endif
 
 /*!
  *    @brief  Class that defines a register on an I2C device

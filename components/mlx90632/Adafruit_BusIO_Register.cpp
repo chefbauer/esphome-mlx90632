@@ -42,10 +42,18 @@ Adafruit_BusIO_Register::Adafruit_BusIO_Register(
  */
 uint32_t Adafruit_BusIO_Register::read() {
   uint8_t buffer[4] = {0};
-  uint16_t read_addr = _address;
+  uint8_t addr_buffer[2];
+  
+  // Prepare register address in big-endian format
+  if (_regWidth == 2) {
+    addr_buffer[0] = (_address >> 8) & 0xFF; // MSB first
+    addr_buffer[1] = _address & 0xFF;        // LSB second
+  } else {
+    addr_buffer[0] = _address & 0xFF;
+  }
 
   // Read from I2C device
-  if (!_i2cDevice->read_then_write((uint8_t *)&read_addr, _regWidth, buffer,
+  if (!_i2cDevice->read_then_write(addr_buffer, _regWidth, buffer,
                                     _width)) {
     return 0;
   }
