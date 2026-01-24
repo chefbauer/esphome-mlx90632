@@ -1,3 +1,5 @@
+# NOT WORKING! maybe dead chinese sensor but it was a pain. will remove if working with Adafruit..
+
 # esphome-mlx90632
 
 ## English
