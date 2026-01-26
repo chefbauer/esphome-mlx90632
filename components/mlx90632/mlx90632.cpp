@@ -6,29 +6,46 @@
 namespace esphome {
 namespace mlx90632 {
 
-// I2C Helper: Read 16-bit register (big-endian)
+// I2C Helper: Read 16-bit register (big-endian) - WITH DEBUG LOGS
 bool MLX90632Sensor::read_register16(uint16_t reg, uint16_t *value) {
   uint8_t addr_buf[2] = {(uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF)};
   uint8_t data_buf[2] = {0};
   
-  if (this->write_read(addr_buf, 2, data_buf, 2) != i2c::ERROR_OK) {
-    ESP_LOGW(TAG, "%s Failed to read register 0x%04X", FW_VERSION, reg);
+  ESP_LOGD(TAG, "%s DEBUG I2C: Reading register 0x%04X", FW_VERSION, reg);
+  ESP_LOGD(TAG, "%s DEBUG I2C: addr_buf = [0x%02X, 0x%02X]", FW_VERSION, addr_buf[0], addr_buf[1]);
+  
+  i2c::ErrorCode err = this->write_read(addr_buf, 2, data_buf, 2);
+  
+  ESP_LOGD(TAG, "%s DEBUG I2C: write_read returned %d", FW_VERSION, (int)err);
+  ESP_LOGD(TAG, "%s DEBUG I2C: data_buf = [0x%02X, 0x%02X]", FW_VERSION, data_buf[0], data_buf[1]);
+  
+  if (err != i2c::ERROR_OK) {
+    ESP_LOGW(TAG, "%s Failed to read register 0x%04X, error: %d", FW_VERSION, reg, (int)err);
     return false;
   }
   
   *value = (data_buf[0] << 8) | data_buf[1];
+  ESP_LOGD(TAG, "%s DEBUG I2C: Final value = 0x%04X (%d)", FW_VERSION, *value, *value);
   return true;
 }
 
-// I2C Helper: Write 16-bit register (big-endian)
+// I2C Helper: Write 16-bit register (big-endian) - WITH DEBUG LOGS
 bool MLX90632Sensor::write_register16(uint16_t reg, uint16_t value) {
   uint8_t buf[4] = {
     (uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF),
     (uint8_t)(value >> 8), (uint8_t)(value & 0xFF)
   };
   
-  if (this->write(buf, 4) != i2c::ERROR_OK) {
-    ESP_LOGW(TAG, "%s Failed to write register 0x%04X", FW_VERSION, reg);
+  ESP_LOGD(TAG, "%s DEBUG I2C: Writing register 0x%04X = 0x%04X", FW_VERSION, reg, value);
+  ESP_LOGD(TAG, "%s DEBUG I2C: write_buf = [0x%02X, 0x%02X, 0x%02X, 0x%02X]", 
+           FW_VERSION, buf[0], buf[1], buf[2], buf[3]);
+  
+  i2c::ErrorCode err = this->write(buf, 4);
+  
+  ESP_LOGD(TAG, "%s DEBUG I2C: write returned %d", FW_VERSION, (int)err);
+  
+  if (err != i2c::ERROR_OK) {
+    ESP_LOGW(TAG, "%s Failed to write register 0x%04X, error: %d", FW_VERSION, reg, (int)err);
     return false;
   }
   return true;
@@ -47,28 +64,38 @@ uint32_t MLX90632Sensor::read32BitRegister(uint16_t lsw_addr) {
   return ((uint32_t)msw << 16) | lsw;
 }
 
-// Initialize sensor (Adafruit-style)
+// Initialize sensor (Adafruit-style - exact copy)
 bool MLX90632Sensor::begin() {
-  // First reset the device (as per Adafruit example)
-  if (!reset()) {
-    ESP_LOGE(TAG, "%s Reset failed during initialization", FW_VERSION);
-    return false;
-  }
-
-  // Wait longer for sensor to stabilize after reset (EEPROM needs time)
-  delay(100);
-
-  // Check if device responds
+  ESP_LOGD(TAG, "%s DEBUG: begin() called", FW_VERSION);
+  
+  // Check if device responds (Adafruit does this without reset first)
   uint16_t product_code;
+  ESP_LOGD(TAG, "%s DEBUG: Reading product code from 0x%04X", FW_VERSION, MLX90632_REG_EE_PRODUCT_CODE);
+  
   if (!read_register16(swapBytes(MLX90632_REG_EE_PRODUCT_CODE), &product_code)) {
     ESP_LOGE(TAG, "%s Failed to read product code", FW_VERSION);
     return false;
   }
 
+  ESP_LOGD(TAG, "%s DEBUG: Product code read: 0x%04X", FW_VERSION, product_code);
+  
   if (product_code == 0xFFFF || product_code == 0x0000) {
     ESP_LOGE(TAG, "%s Invalid product code: 0x%04X", FW_VERSION, product_code);
     return false;
   }
+
+  ESP_LOGI(TAG, "%s Product code: 0x%04X", FW_VERSION, product_code);
+
+  // Load calibration constants automatically
+  ESP_LOGD(TAG, "%s DEBUG: Loading calibration constants", FW_VERSION);
+  if (!getCalibrations()) {
+    ESP_LOGE(TAG, "%s Failed to load calibrations", FW_VERSION);
+    return false;
+  }
+
+  ESP_LOGD(TAG, "%s DEBUG: begin() completed successfully", FW_VERSION);
+  return true;
+}
 
   ESP_LOGI(TAG, "%s Product code: 0x%04X", FW_VERSION, product_code);
 
@@ -391,27 +418,40 @@ double MLX90632Sensor::getObjectTemperature() {
 // ESPHome setup function
 void MLX90632Sensor::setup() {
   ESP_LOGI(TAG, "%s Setting up MLX90632 sensor", FW_VERSION);
+  ESP_LOGD(TAG, "%s DEBUG: setup() called", FW_VERSION);
 
   // Initialize sensor
+  ESP_LOGD(TAG, "%s DEBUG: Calling begin()", FW_VERSION);
   if (!begin()) {
     ESP_LOGE(TAG, "%s Sensor initialization failed", FW_VERSION);
     this->mark_failed();
     return;
   }
 
+  // Reset the device (as per Adafruit example)
+  ESP_LOGD(TAG, "%s DEBUG: Calling reset()", FW_VERSION);
+  if (!reset()) {
+    ESP_LOGE(TAG, "%s Device reset failed", FW_VERSION);
+    this->mark_failed();
+    return;
+  }
+
   // Set to continuous mode and medical measurement
+  ESP_LOGD(TAG, "%s DEBUG: Setting continuous mode", FW_VERSION);
   if (!setMode(MLX90632_MODE_CONTINUOUS)) {
     ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
     this->mark_failed();
     return;
   }
 
+  ESP_LOGD(TAG, "%s DEBUG: Setting medical measurement", FW_VERSION);
   if (!setMeasurementSelect(MLX90632_MEAS_MEDICAL)) {
     ESP_LOGE(TAG, "%s Failed to set medical measurement mode", FW_VERSION);
     this->mark_failed();
     return;
   }
 
+  ESP_LOGD(TAG, "%s DEBUG: Setting refresh rate", FW_VERSION);
   if (!setRefreshRate(MLX90632_REFRESH_2HZ)) {
     ESP_LOGE(TAG, "%s Failed to set refresh rate", FW_VERSION);
     this->mark_failed();
@@ -426,15 +466,24 @@ void MLX90632Sensor::setup() {
 
 // ESPHome update function
 void MLX90632Sensor::update() {
+  ESP_LOGD(TAG, "%s DEBUG: update() called", FW_VERSION);
+  
   // Check if new data is available
+  ESP_LOGD(TAG, "%s DEBUG: Checking for new data", FW_VERSION);
   if (!isNewData()) {
     ESP_LOGD(TAG, "%s No new data available", FW_VERSION);
     return;
   }
+  ESP_LOGD(TAG, "%s DEBUG: New data available!", FW_VERSION);
 
   // Read temperatures
+  ESP_LOGD(TAG, "%s DEBUG: Reading object temperature", FW_VERSION);
   double object_temp = getObjectTemperature();
+  ESP_LOGD(TAG, "%s DEBUG: Reading ambient temperature", FW_VERSION);
   double ambient_temp = getAmbientTemperature();
+
+  ESP_LOGD(TAG, "%s DEBUG: Temperatures read - Object: %.2f°C, Ambient: %.2f°C", 
+           FW_VERSION, object_temp, ambient_temp);
 
   if (std::isnan(object_temp)) {
     ESP_LOGW(TAG, "%s Invalid object temperature (NaN)", FW_VERSION);
@@ -442,12 +491,14 @@ void MLX90632Sensor::update() {
   }
 
   // Publish temperatures
+  ESP_LOGD(TAG, "%s DEBUG: Publishing temperature: %.2f°C", FW_VERSION, object_temp);
   this->publish_state(object_temp);
 
   ESP_LOGI(TAG, "%s Temperatures: Object=%.2f°C, Ambient=%.2f°C", 
            FW_VERSION, object_temp, ambient_temp);
 
   // Reset new data flag
+  ESP_LOGD(TAG, "%s DEBUG: Resetting new data flag", FW_VERSION);
   resetNewData();
 }
 
