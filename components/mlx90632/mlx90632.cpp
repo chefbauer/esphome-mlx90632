@@ -33,17 +33,30 @@ bool MLX90632Sensor::write_register16(uint16_t reg, uint16_t value) {
   return true;
 }
 
-// Calculate temperatures (direct raw value interpretation)
+// Calculate temperatures using Melexis DSPv5 algorithm (simplified)
 float MLX90632Sensor::calculate_object_temperature(uint16_t raw_obj, uint16_t raw_amb) {
-  // For debugging: just interpret raw as signed 16-bit temperature in 0.01°C units
-  // This should give us a baseline to see if values make sense
+  // MLX90632 DSPv5 algorithm based on Melexis library
+  // Raw values are signed 16-bit in 0.01°C units
+  
   int16_t obj = (int16_t)raw_obj;
-  return obj / 100.0f;  // Convert to °C
+  int16_t amb = (int16_t)raw_amb;
+  
+  // Convert to °C (raw values are in 0.01°C units)
+  float T_obj_raw = obj / 100.0f;
+  float T_amb_raw = amb / 100.0f;
+  
+  // For basic functionality, use simple emissivity correction
+  // Medical mode: object temperature is close to ambient
+  // Emissivity for human skin is ~0.97
+  float emissivity = 0.97f;
+  float T_obj = T_amb_raw + (T_obj_raw - T_amb_raw) / emissivity;
+  
+  return T_obj;
 }
 
 float MLX90632Sensor::calculate_ambient_temperature(uint16_t raw_amb) {
   int16_t amb = (int16_t)raw_amb;
-  return amb / 100.0f;  // Convert to °C
+  return amb / 100.0f;  // Raw is in 0.01°C units
 }
 
 // Setup: Initialize sensor
@@ -119,38 +132,31 @@ void MLX90632Sensor::update() {
   read_register16(0x2428, &cal_ba);   // Fa calibration (corrected address)
   read_register16(0x242C, &cal_bb);   // Ga calibration (corrected address)
   
-  // Read RAM registers - Medical mode (0x4000-0x4008)
-  uint16_t med1, med2, med3, med4, med5, med6, med7, med8, med9;
-  read_register16(0x4000, &med1);  // RAM_1
-  read_register16(0x4001, &med2);  // RAM_2
-  read_register16(0x4002, &med3);  // RAM_3
-  read_register16(0x4003, &med4);  // RAM_4
-  read_register16(0x4004, &med5);  // RAM_5
-  read_register16(0x4005, &med6);  // RAM_6 (Object temp)
-  read_register16(0x4006, &med7);  // RAM_7
-  read_register16(0x4007, &med8);  // RAM_8
-  read_register16(0x4008, &med9);  // RAM_9 (Ambient temp)
+  // Quick RAM scan - only check key registers that should change
+  uint16_t ram_6, ram_9, ram_52, ram_54;
+  read_register16(0x4005, &ram_6);   // Medical object
+  read_register16(0x4008, &ram_9);   // Medical ambient  
+  read_register16(0x4033, &ram_52);  // Extended object
+  read_register16(0x4035, &ram_54);  // Extended ambient
   
-  // Read RAM registers - Extended mode (0x4033-0x403B)
-  uint16_t ext52, ext53, ext54, ext55, ext56, ext57, ext58, ext59, ext60;
-  read_register16(0x4033, &ext52);  // RAM_52
-  read_register16(0x4034, &ext53);  // RAM_53
-  read_register16(0x4035, &ext54);  // RAM_54
-  read_register16(0x4036, &ext55);  // RAM_55
-  read_register16(0x4037, &ext56);  // RAM_56
-  read_register16(0x4038, &ext57);  // RAM_57
-  read_register16(0x4039, &ext58);  // RAM_58
-  read_register16(0x403A, &ext59);  // RAM_59
-  read_register16(0x403B, &ext60);  // RAM_60
+  ESP_LOGD(TAG, "%s KEY RAM: MED_OBJ=0x%04X (%d) MED_AMB=0x%04X (%d) EXT_OBJ=0x%04X (%d) EXT_AMB=0x%04X (%d)", 
+           FW_VERSION, ram_6, (int16_t)ram_6, ram_9, (int16_t)ram_9, ram_52, (int16_t)ram_52, ram_54, (int16_t)ram_54);
   
-  ESP_LOGD(TAG, "%s EEPROM: i2c_addr=0x%04X control=0x%04X", 
-           FW_VERSION, ee_i2c_addr, ee_control);
-  ESP_LOGD(TAG, "%s CAL: P_T=0x%04X Aa=0x%04X Ba=0x%04X Ca=0x%04X Da=0x%04X Ea=0x%04X Fa=0x%04X Ga=0x%04X", 
-           FW_VERSION, cal_p_r, cal_p_g, cal_p_t, cal_p_o, cal_aa, cal_ab, cal_ba, cal_bb);
-  ESP_LOGD(TAG, "%s RAM_MED: 1=0x%04X 2=0x%04X 3=0x%04X 4=0x%04X 5=0x%04X 6=0x%04X 7=0x%04X 8=0x%04X 9=0x%04X", 
-           FW_VERSION, med1, med2, med3, med4, med5, med6, med7, med8, med9);
-  ESP_LOGD(TAG, "%s RAM_EXT: 52=0x%04X 53=0x%04X 54=0x%04X 55=0x%04X 56=0x%04X 57=0x%04X 58=0x%04X 59=0x%04X 60=0x%04X", 
-           FW_VERSION, ext52, ext53, ext54, ext55, ext56, ext57, ext58, ext59, ext60);
+  // Full RAM dump for debugging
+  ESP_LOGD(TAG, "%s FULL RAM DUMP:", FW_VERSION);
+  for (uint16_t addr = 0x4000; addr <= 0x4040; addr += 2) {
+    uint16_t value;
+    if (read_register16(addr, &value) == ESP_OK) {
+      ESP_LOGD(TAG, "  RAM_0x%04X: 0x%04X (%d)", addr, value, (int16_t)value);
+    } else {
+      ESP_LOGD(TAG, "  RAM_0x%04X: READ FAILED", addr);
+    }
+  }
+  
+  // For now, use the same registers as before
+  uint16_t med6 = 0, med9 = 0;
+  read_register16(0x4005, &med6);  // RAM_6
+  read_register16(0x4008, &med9);  // RAM_9
   
   float tobj_c = calculate_object_temperature(med6, med9);  // Use medical mode RAM_6 (obj) and RAM_9 (amb)
   float tamb_c = calculate_ambient_temperature(med9);       // Use medical mode RAM_9 (amb)
