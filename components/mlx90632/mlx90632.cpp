@@ -49,6 +49,15 @@ uint32_t MLX90632Sensor::read32BitRegister(uint16_t lsw_addr) {
 
 // Initialize sensor (Adafruit-style)
 bool MLX90632Sensor::begin() {
+  // First reset the device (as per Adafruit example)
+  if (!reset()) {
+    ESP_LOGE(TAG, "%s Reset failed during initialization", FW_VERSION);
+    return false;
+  }
+
+  // Wait longer for sensor to stabilize after reset (EEPROM needs time)
+  delay(100);
+
   // Check if device responds
   uint16_t product_code;
   if (!read_register16(swapBytes(MLX90632_REG_EE_PRODUCT_CODE), &product_code)) {
@@ -390,13 +399,6 @@ void MLX90632Sensor::setup() {
     return;
   }
 
-  // Reset device
-  if (!reset()) {
-    ESP_LOGE(TAG, "%s Device reset failed", FW_VERSION);
-    this->mark_failed();
-    return;
-  }
-
   // Set to continuous mode and medical measurement
   if (!setMode(MLX90632_MODE_CONTINUOUS)) {
     ESP_LOGE(TAG, "%s Failed to set continuous mode", FW_VERSION);
@@ -415,6 +417,9 @@ void MLX90632Sensor::setup() {
     this->mark_failed();
     return;
   }
+
+  // Wait for sensor to stabilize after mode changes
+  delay(100);
 
   ESP_LOGI(TAG, "%s Sensor setup complete - Continuous Medical Mode at 2Hz", FW_VERSION);
 }
