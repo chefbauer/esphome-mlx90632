@@ -1,6 +1,7 @@
 #include "mlx90632.h"
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
+#include <cmath>
 
 namespace esphome {
 namespace mlx90632 {
@@ -430,7 +431,7 @@ void MLX90632Sensor::update() {
   double object_temp = getObjectTemperature();
   double ambient_temp = getAmbientTemperature();
 
-  if (isnan(object_temp)) {
+  if (std::isnan(object_temp)) {
     ESP_LOGW(TAG, "%s Invalid object temperature (NaN)", FW_VERSION);
     return;
   }
